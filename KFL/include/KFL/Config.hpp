@@ -74,6 +74,7 @@
 //   <functional>
 //   <memory>
 //   <random>
+//   <regex>
 //   <system_error>
 //   <thread>
 //   <tuple>
@@ -85,8 +86,8 @@
 #if defined(__clang__)
 	// Clang++
 
-	#if __cplusplus < 201103L
-		#error "-std=c++11 must be turned on."
+	#if __cplusplus < 201402L
+		#error "-std=c++14 must be turned on."
 	#endif
 
 	#define KLAYGE_COMPILER_CLANG
@@ -94,59 +95,48 @@
 
 	#define CLANG_VERSION KFL_JOIN(__clang_major__, __clang_minor__)
 
-	#define KLAYGE_CXX11_CORE_CONSTEXPR_SUPPORT
-	#define KLAYGE_CXX11_CORE_NOEXCEPT_SUPPORT
+	#define KLAYGE_CXX17_CORE_STATIC_ASSERT_V2_SUPPORT
 
 	#if defined(__APPLE__)
-		#if CLANG_VERSION >= 40
+		#if CLANG_VERSION >= 61
 			#define KLAYGE_COMPILER_VERSION CLANG_VERSION
 		#else
-			#error "Unsupported compiler version. Please install Apple clang++ 4.0 or up."
-		#endif
-
-		#define KLAYGE_CXX11_LIBRARY_REGEX_SUPPORT
-		#if __cplusplus >= 201402L
-			#define KLAYGE_CXX14_LIBRARY_MAKE_UNIQUE
+			#error "Unsupported compiler version. Please install Apple clang++ 6.1 or up."
 		#endif
 
 		#define KLAYGE_SYMBOL_EXPORT __attribute__((__visibility__("default")))
 		#define KLAYGE_SYMBOL_IMPORT
-	#elif defined(__MINGW32__)
-		#if CLANG_VERSION >= 34
+	#elif defined(__ANDROID__)
+		#if CLANG_VERSION >= 36
 			#define KLAYGE_COMPILER_VERSION CLANG_VERSION
 		#else
-			#error "Unsupported compiler version. Please install clang++ 3.4 or up."
-		#endif
-			
-		#include <bits/c++config.h>
-		#ifdef _GLIBCXX_USE_FLOAT128
-			#undef _GLIBCXX_USE_FLOAT128
-		#endif
-		#ifdef _GLIBCXX_USE_INT128
-			#undef _GLIBCXX_USE_INT128
+			#error "Unsupported compiler version. Please install clang++ 3.6 or up."
 		#endif
 
-		#ifdef __GLIBCXX__
-			#if __GLIBCXX__ < 20130322 // g++ 4.8
-				#error "Unsupported library version. Please install clang++ with g++ 4.8 or up."
-			#endif
-			#if !defined(_GLIBCXX_HAS_GTHREADS)
-				#error "_GLIBCXX_HAS_GTHREADS must be turned on."
-			#endif
+		#define KLAYGE_TS_LIBRARY_OPTIONAL_SUPPORT
 
-			#if __GLIBCXX__ >= 20140422 // g++ 4.9
-				#define KLAYGE_CXX11_LIBRARY_REGEX_SUPPORT
-				#if __cplusplus > 201103L
-					#define KLAYGE_TS_LIBRARY_OPTIONAL_SUPPORT
-				#endif
-				#if __cplusplus >= 201402L
-					#define KLAYGE_CXX14_LIBRARY_MAKE_UNIQUE
-				#endif
-			#endif
+		#define KLAYGE_SYMBOL_EXPORT __attribute__((__visibility__("default")))
+		#define KLAYGE_SYMBOL_IMPORT
+	#elif defined(_MSC_VER)
+		#if CLANG_VERSION >= 36
+			#define KLAYGE_COMPILER_VERSION CLANG_VERSION
+		#else
+			#error "Unsupported compiler version. Please install clang++ 3.6 or up."
 		#endif
 
-		#define KLAYGE_SYMBOL_EXPORT __declspec(dllexport)
-		#define KLAYGE_SYMBOL_IMPORT __declspec(dllimport)
+		#define KLAYGE_COMPILER_CLANGC2
+
+		#define KLAYGE_TS_LIBRARY_FILESYSTEM_SUPPORT
+
+		#define KLAYGE_SYMBOL_EXPORT __attribute__((__visibility__("default")))
+		#define KLAYGE_SYMBOL_IMPORT
+
+		#ifndef _CRT_SECURE_NO_DEPRECATE
+			#define _CRT_SECURE_NO_DEPRECATE
+		#endif
+		#ifndef _SCL_SECURE_NO_DEPRECATE
+			#define _SCL_SECURE_NO_DEPRECATE
+		#endif
 	#else
 		#error "Clang++ on an unknown platform. Only Apple and Windows are supported."
 	#endif
@@ -165,29 +155,26 @@
 
 	#define GCC_VERSION KFL_JOIN(__GNUC__, __GNUC_MINOR__)
 
-	#if GCC_VERSION >= 48
+	#if GCC_VERSION >= 51
 		#define KLAYGE_COMPILER_VERSION GCC_VERSION
 	#else
-		#error "Unsupported compiler version. Please install g++ 4.8 or up."
+		#error "Unsupported compiler version. Please install g++ 5.1 or up."
 	#endif
 
-	#if __cplusplus < 201103L
-		#error "-std=c++11 or -std=c++0x must be turned on."
+	#if __cplusplus < 201402L
+		#error "-std=c++14 must be turned on."
 	#endif
 	#if !defined(_GLIBCXX_HAS_GTHREADS)
 		#error "_GLIBCXX_HAS_GTHREADS must be turned on."
 	#endif
 
-	#define KLAYGE_CXX11_CORE_CONSTEXPR_SUPPORT
-	#define KLAYGE_CXX11_CORE_NOEXCEPT_SUPPORT
-	#if KLAYGE_COMPILER_VERSION >= 49
-		#define KLAYGE_CXX11_LIBRARY_REGEX_SUPPORT
-		#if __cplusplus > 201103L
-			#define KLAYGE_TS_LIBRARY_OPTIONAL_SUPPORT
-		#endif
-		#if __cplusplus >= 201402L
-			#define KLAYGE_CXX14_LIBRARY_MAKE_UNIQUE
-		#endif
+	#define KLAYGE_TS_LIBRARY_ANY_SUPPORT
+	#define KLAYGE_TS_LIBRARY_OPTIONAL_SUPPORT
+	#if KLAYGE_COMPILER_VERSION >= 61
+		#define KLAYGE_TS_LIBRARY_FILESYSTEM_SUPPORT
+	#endif
+	#if KLAYGE_COMPILER_VERSION >= 60
+		#define KLAYGE_CXX17_CORE_STATIC_ASSERT_V2_SUPPORT
 	#endif
 
 	#if defined(_WIN32) || defined(__WIN32__) || defined(WIN32)
@@ -205,23 +192,15 @@
 	#define KLAYGE_SYMBOL_EXPORT __declspec(dllexport)
 	#define KLAYGE_SYMBOL_IMPORT __declspec(dllimport)
 
-	#if _MSC_VER >= 1900
+	#if _MSC_VER >= 1910
+		#define KLAYGE_COMPILER_VERSION 141
+	#elif _MSC_VER >= 1900
 		#define KLAYGE_COMPILER_VERSION 140
-	#elif _MSC_VER >= 1800
-		#define KLAYGE_COMPILER_VERSION 120
 	#else
-		#error "Unsupported compiler version. Please install vc12 or up."
+		#error "Unsupported compiler version. Please install vc14 or up."
 	#endif
 
-	#define KLAYGE_CXX11_LIBRARY_REGEX_SUPPORT
-	#define KLAYGE_TS_LIBRARY_FILESYSTEM_V2_SUPPORT
-	#define KLAYGE_CXX14_LIBRARY_MAKE_UNIQUE
-	#if KLAYGE_COMPILER_VERSION >= 140
-		#define KLAYGE_CXX11_CORE_CONSTEXPR_SUPPORT
-		#define KLAYGE_CXX11_CORE_NOEXCEPT_SUPPORT
-		#undef KLAYGE_TS_LIBRARY_FILESYSTEM_V2_SUPPORT
-		#define KLAYGE_TS_LIBRARY_FILESYSTEM_V3_SUPPORT
-	#endif
+	#define KLAYGE_TS_LIBRARY_FILESYSTEM_SUPPORT
 
 	#pragma warning(disable: 4251) // STL classes are not dllexport.
 	#pragma warning(disable: 4275) // Derived from non dllexport classes.
@@ -264,28 +243,14 @@
 	#endif
 
 	#if defined(__MINGW32__)
-		#if !defined(__clang__)
-			#define KLAYGE_COMPILER_NAME mgw
-			#include <_mingw.h>
-		#endif
-		#ifndef WINVER
-			#define WINVER 0x0501
-		#endif
+		#define KLAYGE_COMPILER_NAME mgw
+		#include <_mingw.h>
 	#else
 		#include <sdkddkver.h>
 	#endif
 
-	#ifndef _WIN32_WINNT_WINXP
-		#define _WIN32_WINNT_WINXP 0x0501
-	#endif
-	#ifndef _WIN32_WINNT_VISTA
-		#define _WIN32_WINNT_VISTA 0x0600
-	#endif
 	#ifndef _WIN32_WINNT_WIN7
 		#define _WIN32_WINNT_WIN7 0x0601
-	#endif
-	#ifndef _WIN32_WINNT_WIN8
-		#define _WIN32_WINNT_WIN8 0x0602
 	#endif
 	#ifndef _WIN32_WINNT_WINBLUE
 		#define _WIN32_WINNT_WINBLUE 0x0603
@@ -294,21 +259,13 @@
 		#define _WIN32_WINNT_WIN10 0x0A00
 	#endif
 
-	#if (_WIN32_WINNT >= _WIN32_WINNT_WIN8)
+	#if (_WIN32_WINNT >= _WIN32_WINNT_WIN10)
 		#include <winapifamily.h>
 		#if defined(WINAPI_FAMILY)
 			#if WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP
 				#define KLAYGE_PLATFORM_WINDOWS_DESKTOP
 			#else
-				#if WINAPI_FAMILY == WINAPI_FAMILY_PC_APP
-					#if (_WIN32_WINNT >= _WIN32_WINNT_WIN10)
-						#define KLAYGE_PLATFORM_WINDOWS_UWP
-					#endif
-					#define KLAYGE_PLATFORM_WINDOWS_STORE
-				#elif WINAPI_FAMILY == WINAPI_FAMILY_PHONE_APP
-					#define KLAYGE_PLATFORM_WINDOWS_PHONE
-				#endif
-				#define KLAYGE_PLATFORM_WINDOWS_RUNTIME
+				#define KLAYGE_PLATFORM_WINDOWS_STORE
 			#endif
 		#else
 			#define KLAYGE_PLATFORM_WINDOWS_DESKTOP
@@ -318,13 +275,10 @@
 	#endif
 #elif defined(__ANDROID__)
 	#define KLAYGE_PLATFORM_ANDROID
-	#define KLAYGE_COMPILER_NAME gcc
 #elif defined(__CYGWIN__)
 	#define KLAYGE_PLATFORM_CYGWIN
-	#define KLAYGE_COMPILER_NAME cyg
 #elif defined(linux) || defined(__linux) || defined(__linux__)
 	#define KLAYGE_PLATFORM_LINUX
-	#define KLAYGE_COMPILER_NAME gcc
 #elif defined(__APPLE__)
 	#include <TargetConditionals.h>
 	#if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
@@ -333,7 +287,7 @@
 		#define KLAYGE_PLATFORM_DARWIN
 	#endif
 #else
-	#error "Unknown platform. The supported target platforms are Windows, Android, Linux, OSX and iOS."
+	#error "Unknown platform. The supported target platforms are Windows, Android, Linux, OSX, and iOS."
 #endif
 
 // Defines supported CPUs

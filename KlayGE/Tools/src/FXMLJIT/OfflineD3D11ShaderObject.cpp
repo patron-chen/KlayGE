@@ -35,6 +35,7 @@
 #include <KFL/Math.hpp>
 #include <KFL/COMPtr.hpp>
 #include <KFL/ResIdentifier.hpp>
+#include <KFL/Hash.hpp>
 
 #include <string>
 #include <map>
@@ -42,7 +43,6 @@
 #include <sstream>
 #include <cstring>
 #include <boost/assert.hpp>
-#include <boost/functional/hash.hpp>
 
 #ifdef KLAYGE_PLATFORM_WINDOWS
 
@@ -93,36 +93,8 @@ namespace KlayGE
 				}
 				break;
 
-			case 10:
-				switch (caps.minor_version)
-				{
-				case 1:
-					feature_level_ = D3D_FEATURE_LEVEL_10_1;
-					break;
-
-				default:
-				case 0:
-					feature_level_ = D3D_FEATURE_LEVEL_10_0;
-					break;
-				}
-				break;
-
-			case 9:
-				switch (caps.minor_version)
-				{
-				case 3:
-					feature_level_ = D3D_FEATURE_LEVEL_9_3;
-					break;
-
-				case 2:
-					feature_level_ = D3D_FEATURE_LEVEL_9_2;
-					break;
-
-				default:
-				case 1:
-					feature_level_ = D3D_FEATURE_LEVEL_9_1;
-					break;
-				}
+			default:
+				BOOST_ASSERT(false);
 				break;
 			}
 
@@ -140,40 +112,8 @@ namespace KlayGE
 				ds_profile_ = "ds_5_0";
 				break;
 
-			case D3D_FEATURE_LEVEL_10_1:
-				vs_profile_ = "vs_4_1";
-				ps_profile_ = "ps_4_1";
-				gs_profile_ = "gs_4_1";
-				cs_profile_ = "cs_4_1";
-				hs_profile_ = "";
-				ds_profile_ = "";
-				break;
-
-			case D3D_FEATURE_LEVEL_10_0:
-				vs_profile_ = "vs_4_0";
-				ps_profile_ = "ps_4_0";
-				gs_profile_ = "gs_4_0";
-				cs_profile_ = "cs_4_0";
-				hs_profile_ = "";
-				ds_profile_ = "";
-				break;
-
-			case D3D_FEATURE_LEVEL_9_3:
-				vs_profile_ = "vs_4_0_level_9_3";
-				ps_profile_ = "ps_4_0_level_9_3";
-				gs_profile_ = "";
-				cs_profile_ = "";
-				hs_profile_ = "";
-				ds_profile_ = "";
-				break;
-
 			default:
-				vs_profile_ = "vs_4_0_level_9_1";
-				ps_profile_ = "ps_4_0_level_9_1";
-				gs_profile_ = "";
-				cs_profile_ = "";
-				hs_profile_ = "";
-				ds_profile_ = "";
+				BOOST_ASSERT(false);
 				break;
 			}
 		}
@@ -379,14 +319,9 @@ namespace KlayGE
 			{
 				std::vector<std::pair<char const *, char const *>> macros;
 				macros.emplace_back("KLAYGE_D3D11", "1");
-				if (feature_level <= D3D_FEATURE_LEVEL_9_3)
-				{
-					macros.emplace_back("KLAYGE_BC5_AS_AG", "1");
-					macros.emplace_back("KLAYGE_BC4_AS_G", "1");
-				}
 				macros.emplace_back("KLAYGE_FRAG_DEPTH", "1");
 
-				uint32_t flags = 0;
+				uint32_t flags = D3DCOMPILE_ENABLE_STRICTNESS;
 #if !defined(KLAYGE_DEBUG)
 				flags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
 #endif
@@ -516,18 +451,18 @@ namespace KlayGE
 							{
 								reflection->GetInputParameterDesc(i, &signature);
 
-								size_t seed = boost::hash_range(signature.SemanticName, signature.SemanticName + strlen(signature.SemanticName));
-								boost::hash_combine(seed, signature.SemanticIndex);
-								boost::hash_combine(seed, signature.Register);
-								boost::hash_combine(seed, static_cast<uint32_t>(signature.SystemValueType));
-								boost::hash_combine(seed, static_cast<uint32_t>(signature.ComponentType));
-								boost::hash_combine(seed, signature.Mask);
-								boost::hash_combine(seed, signature.ReadWriteMask);
-								boost::hash_combine(seed, signature.Stream);
-								boost::hash_combine(seed, signature.MinPrecision);
+								size_t seed = RT_HASH(signature.SemanticName);
+								HashCombine(seed, signature.SemanticIndex);
+								HashCombine(seed, signature.Register);
+								HashCombine(seed, static_cast<uint32_t>(signature.SystemValueType));
+								HashCombine(seed, static_cast<uint32_t>(signature.ComponentType));
+								HashCombine(seed, signature.Mask);
+								HashCombine(seed, signature.ReadWriteMask);
+								HashCombine(seed, signature.Stream);
+								HashCombine(seed, signature.MinPrecision);
 
 								size_t sig = vs_signature_;
-								boost::hash_combine(sig, seed);
+								HashCombine(sig, seed);
 								vs_signature_ = static_cast<uint32_t>(sig);
 							}
 						}

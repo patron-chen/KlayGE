@@ -19,7 +19,7 @@ DOWNLOAD_FILE("KlayGE/media/Textures/2D/noise_grad4_perm.dds" "cbda47a1678ce70b6
 DOWNLOAD_FILE("KlayGE/media/Textures/2D/noise_simplex.dds" "cbda47a1678ce70b6720856736100979d469e159" "83b8b76f165a00e998ff13e39c40c27393d3e271")
 DOWNLOAD_FILE("KlayGE/media/Textures/2D/powered_by_klayge.dds" "cbda47a1678ce70b6720856736100979d469e159" "21346648b14a0366de7abd628393e6de0253317d")
 DOWNLOAD_FILE("KlayGE/media/Textures/2D/ui.dds" "cbda47a1678ce70b6720856736100979d469e159" "7bdafaf02f9f5f2fef748d38c12c84212004cda6")
-DOWNLOAD_FILE("KlayGE/media/Textures/2D/white_noise_tex.dds" "cbda47a1678ce70b6720856736100979d469e159" "344bbd254a537fbd437f6b6ef0458448f81dad81")
+DOWNLOAD_FILE("KlayGE/media/Textures/2D/white_noise_tex.dds" "0cd916b426c9892dfe05743199f481a13489217c" "5739284048778c68fb862d957f0d956430b5c279")
 DOWNLOAD_FILE("KlayGE/media/Textures/3D/color_grading.dds" "cbda47a1678ce70b6720856736100979d469e159" "44bee46635485aef2068095a45cab5a9fbc6d838")
 DOWNLOAD_FILE("KlayGE/media/Textures/Cube/Lake_CraterLake03_filtered_c.dds" "cbda47a1678ce70b6720856736100979d469e159" "579143e79a6361d26926d967b6c4511127c0137b")
 DOWNLOAD_FILE("KlayGE/media/Textures/Cube/Lake_CraterLake03_filtered_y.dds" "cbda47a1678ce70b6720856736100979d469e159" "4978e7b023d80d42111afea10d3f10be37980e25")
@@ -29,17 +29,21 @@ DOWNLOAD_FILE("KlayGE/media/Textures/Cube/uffizi_cross_filtered_c.dds" "cbda47a1
 DOWNLOAD_FILE("KlayGE/media/Textures/Cube/uffizi_cross_filtered_y.dds" "cbda47a1678ce70b6720856736100979d469e159" "c515b8aed52a6eafee96ea4d32b60eaf746ea985")
 DOWNLOAD_FILE("KlayGE/media/Textures/Juda/klayge_logo.jdt" "cbda47a1678ce70b6720856736100979d469e159" "4fed908fd641b6c536fee9f733dba37d4531079a")
 
+IF(NOT KLAYGE_COMPILER_MSVC)
+	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
+ENDIF()
+
 SET(LIB_NAME ${KLAYGE_CORELIB_NAME})
 
-SET(KERNEL_SOURCE_FILES
-	${KLAYGE_PROJECT_DIR}/Core/Src/Kernel/Context.cpp
-	${KLAYGE_PROJECT_DIR}/Core/Src/Kernel/HWDetect.cpp
-	${KLAYGE_PROJECT_DIR}/Core/Src/Kernel/KlayGE.cpp
-	${KLAYGE_PROJECT_DIR}/Core/Src/Kernel/PerfProfiler.cpp
-	${KLAYGE_PROJECT_DIR}/Core/Src/Kernel/ResLoader.cpp
+SET(BASE_SOURCE_FILES
+	${KLAYGE_PROJECT_DIR}/Core/Src/Base/Context.cpp
+	${KLAYGE_PROJECT_DIR}/Core/Src/Base/HWDetect.cpp
+	${KLAYGE_PROJECT_DIR}/Core/Src/Base/KlayGE.cpp
+	${KLAYGE_PROJECT_DIR}/Core/Src/Base/PerfProfiler.cpp
+	${KLAYGE_PROJECT_DIR}/Core/Src/Base/ResLoader.cpp
 )
 
-SET(KERNEL_HEADER_FILES
+SET(BASE_HEADER_FILES
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/Context.hpp
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/HWDetect.hpp
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/KlayGE.hpp
@@ -49,11 +53,12 @@ SET(KERNEL_HEADER_FILES
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/SALWrapper.hpp
 )
 
-SOURCE_GROUP("Kernel\\Source Files" FILES ${KERNEL_SOURCE_FILES})
-SOURCE_GROUP("Kernel\\Header Files" FILES ${KERNEL_HEADER_FILES})
+SOURCE_GROUP("Base\\Source Files" FILES ${BASE_SOURCE_FILES})
+SOURCE_GROUP("Base\\Header Files" FILES ${BASE_HEADER_FILES})
 
 
 SET(RENDERING_SOURCE_FILES
+	${KLAYGE_PROJECT_DIR}/Core/Src/Render/Blitter.cpp
 	${KLAYGE_PROJECT_DIR}/Core/Src/Render/Camera.cpp
 	${KLAYGE_PROJECT_DIR}/Core/Src/Render/CameraController.cpp
 	${KLAYGE_PROJECT_DIR}/Core/Src/Render/CascadedShadowLayer.cpp
@@ -66,6 +71,7 @@ SET(RENDERING_SOURCE_FILES
 	${KLAYGE_PROJECT_DIR}/Core/Src/Render/GraphicsBuffer.cpp
 	${KLAYGE_PROJECT_DIR}/Core/Src/Render/HDRPostProcess.cpp
 	${KLAYGE_PROJECT_DIR}/Core/Src/Render/HeightMap.cpp
+	${KLAYGE_PROJECT_DIR}/Core/Src/Render/Imposter.cpp
 	${KLAYGE_PROJECT_DIR}/Core/Src/Render/IndirectLightingLayer.cpp
 	${KLAYGE_PROJECT_DIR}/Core/Src/Render/InfTerrain.cpp
 	${KLAYGE_PROJECT_DIR}/Core/Src/Render/JudaTexture.cpp
@@ -83,6 +89,7 @@ SET(RENDERING_SOURCE_FILES
 	${KLAYGE_PROJECT_DIR}/Core/Src/Render/RenderEngine.cpp
 	${KLAYGE_PROJECT_DIR}/Core/Src/Render/RenderFactory.cpp
 	${KLAYGE_PROJECT_DIR}/Core/Src/Render/RenderLayout.cpp
+	${KLAYGE_PROJECT_DIR}/Core/Src/Render/RenderMaterial.cpp
 	${KLAYGE_PROJECT_DIR}/Core/Src/Render/RenderStateObject.cpp
 	${KLAYGE_PROJECT_DIR}/Core/Src/Render/RenderView.cpp
 	${KLAYGE_PROJECT_DIR}/Core/Src/Render/SATPostProcess.cpp
@@ -101,6 +108,7 @@ SET(RENDERING_SOURCE_FILES
 )
 
 SET(RENDERING_HEADER_FILES
+	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/Blitter.hpp
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/Camera.hpp
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/CameraController.hpp
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/CascadedShadowLayer.hpp
@@ -113,6 +121,7 @@ SET(RENDERING_HEADER_FILES
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/GraphicsBuffer.hpp
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/HDRPostProcess.hpp
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/HeightMap.hpp
+	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/Imposter.hpp
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/IndirectLightingLayer.hpp
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/InfTerrain.hpp
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/JudaTexture.hpp
@@ -131,6 +140,7 @@ SET(RENDERING_HEADER_FILES
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/RenderEngine.hpp
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/RenderFactory.hpp
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/RenderLayout.hpp
+	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/RenderMaterial.hpp
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/RenderSettings.hpp
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/RenderStateObject.hpp
 	${KLAYGE_PROJECT_DIR}/Core/Include/KlayGE/RenderView.hpp
@@ -152,6 +162,7 @@ SET(RENDERING_HEADER_FILES
 SET(RENDERING_EFFECT_FILES
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/2D.fxml
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/BilateralBlur.fxml
+	${KLAYGE_PROJECT_DIR}/media/RenderFX/Blitter.fxml
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/Blur.fxml
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/Bone.fxml
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/CameraProxy.fxml
@@ -171,14 +182,13 @@ SET(RENDERING_EFFECT_FILES
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/GammaCorrection.fxml
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/GBuffer.fxml
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/GBufferNoSkinning.fxml
-	${KLAYGE_PROJECT_DIR}/media/RenderFX/GBufferSkinning64.fxml
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/GBufferSkinning128.fxml
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/InfTerrain.fxml
+	${KLAYGE_PROJECT_DIR}/media/RenderFX/Imposter.fxml
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/JudaTexture.fxml
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/LensEffects.fxml
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/LensFlare.fxml
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/LightIndexedDeferredRendering.fxml
-	${KLAYGE_PROJECT_DIR}/media/RenderFX/LightIndexedDeferredRendering4.fxml
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/LightIndexedDeferredRendering32.fxml
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/Lighting.fxml
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/LightShaft.fxml
@@ -207,6 +217,7 @@ SET(RENDERING_EFFECT_FILES
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/TileBasedDeferredRendering.fxml
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/ToneMapping.fxml
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/util.fxml
+	${KLAYGE_PROJECT_DIR}/media/RenderFX/VarianceDepthMap.fxml
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/VPLsLighting.fxml
 )
 
@@ -231,6 +242,7 @@ SET(RENDERING_POSTPROCESSOR_FILES
 	${KLAYGE_PROJECT_DIR}/media/PostProcessors/Stereoscopic.ppml
 	${KLAYGE_PROJECT_DIR}/media/PostProcessors/TAA.ppml
 	${KLAYGE_PROJECT_DIR}/media/PostProcessors/Translucency.ppml
+	${KLAYGE_PROJECT_DIR}/media/PostProcessors/VarianceDepthMap.ppml
 )
 
 SOURCE_GROUP("Rendering System\\Source Files" FILES ${RENDERING_SOURCE_FILES})
@@ -397,9 +409,9 @@ IF(KLAYGE_PLATFORM_WINDOWS_DESKTOP)
 	SET(APP_SOURCE_FILES ${APP_SOURCE_FILES}
 		${KLAYGE_PROJECT_DIR}/Core/Src/AppLayer/WindowWin.cpp
 	)
-ELSEIF(KLAYGE_PLATFORM_WINDOWS_RUNTIME)
+ELSEIF(KLAYGE_PLATFORM_WINDOWS_STORE)
 	SET(APP_SOURCE_FILES ${APP_SOURCE_FILES}
-		${KLAYGE_PROJECT_DIR}/Core/Src/AppLayer/WindowWinRT.cpp
+		${KLAYGE_PROJECT_DIR}/Core/Src/AppLayer/WindowWinStore.cpp
 	)
 ELSEIF(KLAYGE_PLATFORM_ANDROID)
 	SET(APP_SOURCE_FILES ${APP_SOURCE_FILES}
@@ -441,7 +453,7 @@ ENDIF()
 
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
 INCLUDE_DIRECTORIES(${KLAYGE_PROJECT_DIR}/../External/7z)
-INCLUDE_DIRECTORIES(${KLAYGE_PROJECT_DIR}/../External/DXSDK/Include)
+INCLUDE_DIRECTORIES(${KLAYGE_PROJECT_DIR}/../External/UniversalDXSDK/Include)
 INCLUDE_DIRECTORIES(${KLAYGE_PROJECT_DIR}/../KFL/include)
 INCLUDE_DIRECTORIES(${KLAYGE_PROJECT_DIR}/Core/Include)
 INCLUDE_DIRECTORIES(${KLAYGE_PROJECT_DIR}/../kfont/include)
@@ -466,7 +478,7 @@ IF(KLAYGE_PLATFORM_LINUX)
 ENDIF()
 
 ADD_LIBRARY(${LIB_NAME} ${KLAYGE_PREFERRED_LIB_TYPE}
-	${KERNEL_SOURCE_FILES} ${KERNEL_HEADER_FILES}
+	${BASE_SOURCE_FILES} ${BASE_HEADER_FILES}
 	${RENDERING_SOURCE_FILES} ${RENDERING_HEADER_FILES} ${RENDERING_EFFECT_FILES} ${RENDERING_POSTPROCESSOR_FILES}
 	${AUDIO_SOURCE_FILES} ${AUDIO_HEADER_FILES}
 	${NETWORK_SOURCE_FILES} ${NETWORK_HEADER_FILES}
@@ -491,12 +503,17 @@ ELSEIF(KLAYGE_PLATFORM_LINUX)
 		debug glloader${KLAYGE_OUTPUT_SUFFIX}_d optimized glloader${KLAYGE_OUTPUT_SUFFIX})
 ENDIF()
 
-IF(NOT MSVC)
+IF(NOT KLAYGE_COMPILER_MSVC)
+	SET(FS_LIB ${Boost_FILESYSTEM_LIBRARY})
+	IF(KLAYGE_COMPILER_GCC AND (KLAYGE_COMPILER_VERSION STRGREATER "60"))
+		SET(FS_LIB "stdc++fs")
+	ENDIF()
+
 	SET(EXTRA_LINKED_LIBRARIES ${EXTRA_LINKED_LIBRARIES}
 		debug MeshMLLib${KLAYGE_OUTPUT_SUFFIX}_d optimized MeshMLLib${KLAYGE_OUTPUT_SUFFIX}
 		debug kfont${KLAYGE_OUTPUT_SUFFIX}_d optimized kfont${KLAYGE_OUTPUT_SUFFIX}
 		debug KFL${KLAYGE_OUTPUT_SUFFIX}_d optimized KFL${KLAYGE_OUTPUT_SUFFIX}
-		${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY})
+		${FS_LIB})
 ENDIF()
 
 SET_TARGET_PROPERTIES(${LIB_NAME} PROPERTIES
@@ -518,7 +535,7 @@ IF(KLAYGE_PLATFORM_DARWIN OR KLAYGE_PLATFORM_LINUX)
 		LIBRARY_OUTPUT_DIRECTORY_MINSIZEREL ${KLAYGE_BIN_DIR})
 ENDIF()
 
-ADD_PRECOMPILED_HEADER(${LIB_NAME} "KlayGE/KlayGE.hpp" "${KLAYGE_PROJECT_DIR}/Core/Include" "${KLAYGE_PROJECT_DIR}/Core/Src/Kernel/KlayGE.cpp")
+ADD_PRECOMPILED_HEADER(${LIB_NAME} "KlayGE/KlayGE.hpp" "${KLAYGE_PROJECT_DIR}/Core/Include" "${KLAYGE_PROJECT_DIR}/Core/Src/Base/KlayGE.cpp")
 
 TARGET_LINK_LIBRARIES(${LIB_NAME}
 	${EXTRA_LINKED_LIBRARIES}
@@ -535,3 +552,5 @@ IF(KLAYGE_PLATFORM_WINDOWS)
 ENDIF()
 
 SET_TARGET_PROPERTIES(${LIB_NAME} PROPERTIES FOLDER "Engine/Core")
+
+ADD_DEPENDENCIES(AllInEngine ${LIB_NAME})

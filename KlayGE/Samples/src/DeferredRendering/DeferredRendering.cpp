@@ -121,11 +121,6 @@ DeferredRenderingApp::DeferredRenderingApp()
 	ResLoader::Instance().AddPath("../../Samples/media/DeferredRendering");
 }
 
-bool DeferredRenderingApp::ConfirmDevice() const
-{
-	return true;
-}
-
 void DeferredRenderingApp::OnCreate()
 {
 	this->LookAt(float3(-14.5f, 18, -3), float3(-13.6f, 17.55f, -2.8f));
@@ -133,7 +128,7 @@ void DeferredRenderingApp::OnCreate()
 
 	TexturePtr c_cube = ASyncLoadTexture("Lake_CraterLake03_filtered_c.dds", EAH_GPU_Read | EAH_Immutable);
 	TexturePtr y_cube = ASyncLoadTexture("Lake_CraterLake03_filtered_y.dds", EAH_GPU_Read | EAH_Immutable);
-	RenderablePtr scene_model = ASyncLoadModel("sponza_crytek.7z//sponza_crytek.meshml", EAH_GPU_Read | EAH_Immutable);
+	RenderablePtr scene_model = ASyncLoadModel("sponza_crytek.meshml", EAH_GPU_Read | EAH_Immutable);
 
 	font_ = SyncLoadFont("gkai00mp.kfont");
 
@@ -168,7 +163,7 @@ void DeferredRenderingApp::OnCreate()
 
 	spot_light_[2] = MakeSharedPtr<SpotLightSource>();
 	spot_light_[2]->Attrib(LightSource::LSA_IndirectLighting);
-	spot_light_[2]->Color(float3(6.0f, 5.88f, 4.38f) * 2.0f);
+	spot_light_[2]->Color(float3(6.0f, 5.88f, 4.38f) * 10.0f);
 	spot_light_[2]->Position(float3(0.0f, 43.2f, -5.9f));
 	spot_light_[2]->Direction(float3(0.0f, -1, 0.1f));
 	spot_light_[2]->Falloff(float3(1, 0.1f, 0));
@@ -437,11 +432,11 @@ uint32_t DeferredRenderingApp::DoUpdate(uint32_t pass)
 		{
 			float3 clr = MathLib::normalize(float3(sin(this->AppTime() * 0.3f + i * 10.0f),
 				cos(this->AppTime() * 0.2f + 0.5f + i * 20.0f),
-				sin(this->AppTime() * 0.1f + 1.0f + i * 30.0f))) * 0.1f + 0.1f;
+				sin(this->AppTime() * 0.1f + 1.0f + i * 30.0f))) * 0.3f + 0.1f;
 			particle_lights_[i]->Color(clr);
-			float factor = 50.0f / particle_lights_.size() + (this->AppTime() * 0.005f);
-			particle_lights_[i]->Position(float3(8 * sin(factor * i),
-				5.0f + 10.0f / particle_lights_.size() * i, 8 * cos(factor * i)));
+			float factor = (50.0f + this->AppTime() * 0.6f) / particle_lights_.size();
+			particle_lights_[i]->Position(float3(6.0f * sin(factor * i),
+				5.0f + 10.0f / particle_lights_.size() * i, 6.0f * cos(factor * i) + 1));
 		}
 	}
 

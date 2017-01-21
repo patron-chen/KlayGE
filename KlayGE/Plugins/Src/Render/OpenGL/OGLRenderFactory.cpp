@@ -75,28 +75,21 @@ namespace KlayGE
 	}
 
 	GraphicsBufferPtr OGLRenderFactory::MakeDelayCreationVertexBuffer(BufferUsage usage, uint32_t access_hint,
-			uint32_t size_in_byte, ElementFormat /*fmt*/)
+			uint32_t size_in_byte, ElementFormat fmt)
 	{
-		return MakeSharedPtr<OGLGraphicsBuffer>(usage, access_hint, GL_ARRAY_BUFFER, size_in_byte);
+		return MakeSharedPtr<OGLGraphicsBuffer>(usage, access_hint, GL_ARRAY_BUFFER, size_in_byte, fmt);
 	}
 
 	GraphicsBufferPtr OGLRenderFactory::MakeDelayCreationIndexBuffer(BufferUsage usage, uint32_t access_hint,
-			uint32_t size_in_byte, ElementFormat /*fmt*/)
+			uint32_t size_in_byte, ElementFormat fmt)
 	{
-		return MakeSharedPtr<OGLGraphicsBuffer>(usage, access_hint, GL_ELEMENT_ARRAY_BUFFER, size_in_byte);
+		return MakeSharedPtr<OGLGraphicsBuffer>(usage, access_hint, GL_ELEMENT_ARRAY_BUFFER, size_in_byte, fmt);
 	}
 
 	GraphicsBufferPtr OGLRenderFactory::MakeDelayCreationConstantBuffer(BufferUsage usage, uint32_t access_hint,
 			uint32_t size_in_byte, ElementFormat fmt)
 	{
-		KFL_UNUSED(fmt);
-
-		GraphicsBufferPtr ret;
-		if (glloader_GL_VERSION_3_1() || glloader_GL_ARB_uniform_buffer_object())
-		{
-			ret = MakeSharedPtr<OGLGraphicsBuffer>(usage, access_hint, GL_UNIFORM_BUFFER, size_in_byte);
-		}
-		return ret;
+		return MakeSharedPtr<OGLGraphicsBuffer>(usage, access_hint, GL_UNIFORM_BUFFER, size_in_byte, fmt);
 	}
 
 	QueryPtr OGLRenderFactory::MakeOcclusionQuery()
@@ -114,26 +107,24 @@ namespace KlayGE
 		return MakeSharedPtr<OGLTimerQuery>();
 	}
 
+	QueryPtr OGLRenderFactory::MakeSOStatisticsQuery()
+	{
+		return MakeSharedPtr<OGLSOStatisticsQuery>();
+	}
+
 	FencePtr OGLRenderFactory::MakeFence()
 	{
-		FencePtr ret;
-		if (glloader_GL_VERSION_3_2() || glloader_GL_ARB_sync())
-		{
-			ret = MakeSharedPtr<OGLFence>();
-		}
-		return ret;
+		return MakeSharedPtr<OGLFence>();
 	}
 
-	RenderViewPtr OGLRenderFactory::Make1DRenderView(Texture& texture, int first_array_index, int /*array_size*/, int level)
+	RenderViewPtr OGLRenderFactory::Make1DRenderView(Texture& texture, int first_array_index, int array_size, int level)
 	{
-		// TODO: Support render-to-texture-array
-		return MakeSharedPtr<OGLTexture1DRenderView>(texture, first_array_index, level);
+		return MakeSharedPtr<OGLTexture1DRenderView>(texture, first_array_index, array_size, level);
 	}
 
-	RenderViewPtr OGLRenderFactory::Make2DRenderView(Texture& texture, int first_array_index, int /*array_size*/, int level)
+	RenderViewPtr OGLRenderFactory::Make2DRenderView(Texture& texture, int first_array_index, int array_size, int level)
 	{
-		// TODO: Support render-to-texture-array
-		return MakeSharedPtr<OGLTexture2DRenderView>(texture, first_array_index, level);
+		return MakeSharedPtr<OGLTexture2DRenderView>(texture, first_array_index, array_size, level);
 	}
 
 	RenderViewPtr OGLRenderFactory::Make2DRenderView(Texture& texture, int array_index, Texture::CubeFaces face, int level)
@@ -146,9 +137,9 @@ namespace KlayGE
 		return MakeSharedPtr<OGLTexture3DRenderView>(texture, array_index, slice, level);
 	}
 
-	RenderViewPtr OGLRenderFactory::MakeCubeRenderView(Texture& /*texture*/, int /*array_index*/, int /*level*/)
+	RenderViewPtr OGLRenderFactory::MakeCubeRenderView(Texture& texture, int array_index, int level)
 	{
-		return RenderViewPtr();
+		return MakeSharedPtr<OGLTextureCubeRenderView>(texture, array_index, level);
 	}
 
 	RenderViewPtr OGLRenderFactory::Make3DRenderView(Texture& /*texture*/, int /*array_index*/, uint32_t /*first_slice*/, uint32_t /*num_slices*/, int /*level*/)
@@ -168,14 +159,12 @@ namespace KlayGE
 
 	RenderViewPtr OGLRenderFactory::Make1DDepthStencilRenderView(Texture& texture, int first_array_index, int array_size, int level)
 	{
-		// TODO: Support render-to-texture-array
 		return this->Make2DDepthStencilRenderView(texture, first_array_index, array_size, level);
 	}
 
-	RenderViewPtr OGLRenderFactory::Make2DDepthStencilRenderView(Texture& texture, int first_array_index, int /*array_size*/, int level)
+	RenderViewPtr OGLRenderFactory::Make2DDepthStencilRenderView(Texture& texture, int first_array_index, int array_size, int level)
 	{
-		// TODO: Support render-to-texture-array
-		return MakeSharedPtr<OGLDepthStencilRenderView>(texture, first_array_index, level);
+		return MakeSharedPtr<OGLDepthStencilRenderView>(texture, first_array_index, array_size, level);
 	}
 	
 	RenderViewPtr OGLRenderFactory::Make2DDepthStencilRenderView(Texture& texture, int array_index, Texture::CubeFaces face, int level)
@@ -188,9 +177,9 @@ namespace KlayGE
 		return RenderViewPtr();
 	}
 
-	RenderViewPtr OGLRenderFactory::MakeCubeDepthStencilRenderView(Texture& /*texture*/, int /*array_index*/, int /*level*/)
+	RenderViewPtr OGLRenderFactory::MakeCubeDepthStencilRenderView(Texture& texture, int array_index, int level)
 	{
-		return RenderViewPtr();
+		return MakeSharedPtr<OGLDepthStencilRenderView>(texture, array_index, 1, level);
 	}
 
 	RenderViewPtr OGLRenderFactory::Make3DDepthStencilRenderView(Texture& /*texture*/, int /*array_index*/, uint32_t /*first_slice*/, uint32_t /*num_slices*/, int /*level*/)
@@ -243,19 +232,10 @@ namespace KlayGE
 		return MakeUniquePtr<OGLRenderEngine>();
 	}
 
-	RasterizerStateObjectPtr OGLRenderFactory::DoMakeRasterizerStateObject(RasterizerStateDesc const & desc)
+	RenderStateObjectPtr OGLRenderFactory::DoMakeRenderStateObject(RasterizerStateDesc const & rs_desc,
+		DepthStencilStateDesc const & dss_desc, BlendStateDesc const & bs_desc)
 	{
-		return MakeSharedPtr<OGLRasterizerStateObject>(desc);
-	}
-
-	DepthStencilStateObjectPtr OGLRenderFactory::DoMakeDepthStencilStateObject(DepthStencilStateDesc const & desc)
-	{
-		return MakeSharedPtr<OGLDepthStencilStateObject>(desc);
-	}
-
-	BlendStateObjectPtr OGLRenderFactory::DoMakeBlendStateObject(BlendStateDesc const & desc)
-	{
-		return MakeSharedPtr<OGLBlendStateObject>(desc);
+		return MakeSharedPtr<OGLRenderStateObject>(rs_desc, dss_desc, bs_desc);
 	}
 
 	SamplerStateObjectPtr OGLRenderFactory::DoMakeSamplerStateObject(SamplerStateDesc const & desc)

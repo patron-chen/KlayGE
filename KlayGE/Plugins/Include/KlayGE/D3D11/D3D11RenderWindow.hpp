@@ -18,7 +18,7 @@
 #include <KlayGE/D3D11/D3D11FrameBuffer.hpp>
 #include <KlayGE/D3D11/D3D11Adapter.hpp>
 
-#if defined KLAYGE_PLATFORM_WINDOWS_RUNTIME
+#if defined KLAYGE_PLATFORM_WINDOWS_STORE
 #include <windows.ui.core.h>
 #include <windows.graphics.display.h>
 #endif
@@ -48,12 +48,13 @@ namespace KlayGE
 	class D3D11RenderWindow : public D3D11FrameBuffer
 	{
 	public:
-		D3D11RenderWindow(D3D11AdapterPtr const & adapter, std::string const & name, RenderSettings const & settings);
+		D3D11RenderWindow(D3D11Adapter* adapter, std::string const & name, RenderSettings const & settings);
 		~D3D11RenderWindow();
 
 		void Destroy();
 
-		void SwapBuffers();
+		void SwapBuffers() override;
+		void WaitOnSwapBuffers() override;
 
 		std::wstring const & Description() const;
 
@@ -95,18 +96,14 @@ namespace KlayGE
 		void OnExitSizeMove(Window const & win);
 		void OnSize(Window const & win, bool active);
 
-#ifdef KLAYGE_PLATFORM_WINDOWS_RUNTIME
-#if (_WIN32_WINNT >= _WIN32_WINNT_WINBLUE)
+#ifdef KLAYGE_PLATFORM_WINDOWS_STORE
 		HRESULT OnStereoEnabledChanged(ABI::Windows::Graphics::Display::IDisplayInformation* sender,
 			IInspectable* args);
-#else
-		HRESULT OnStereoEnabledChanged(IInspectable* sender);
-#endif
 #endif
 
 	private:
 		void UpdateSurfacesPtrs();
-		void ResetDevice();
+		void CreateSwapChain(ID3D11Device* d3d_device);
 
 	private:
 		std::string	name_;
@@ -120,8 +117,10 @@ namespace KlayGE
 		bool	isFullScreen_;
 		uint32_t sync_interval_;
 
-		D3D11AdapterPtr			adapter_;
+		D3D11Adapter* adapter_;
 		bool dxgi_stereo_support_;
+		bool dxgi_allow_tearing_;
+		bool dxgi_async_swap_chain_;
 
 #ifdef KLAYGE_PLATFORM_WINDOWS_DESKTOP
 		DXGI_SWAP_CHAIN_DESC sc_desc_;
@@ -132,12 +131,14 @@ namespace KlayGE
 		DXGI_SWAP_CHAIN_DESC1 sc_desc1_;
 #endif
 		IDXGISwapChainPtr		swap_chain_;
+		IDXGISwapChain1Ptr		swap_chain_1_;
 		bool					main_wnd_;
+		HANDLE frame_latency_waitable_obj_;
 
 		IAmdDxExtQuadBufferStereoPtr stereo_amd_qb_ext_;
 		uint32_t stereo_amd_right_eye_height_;
 
-		TexturePtr			        back_buffer_;
+		TexturePtr					back_buffer_;
 		TexturePtr					depth_stencil_;
 		RenderViewPtr				render_target_view_;
 		RenderViewPtr				depth_stencil_view_;

@@ -188,11 +188,7 @@ namespace KlayGE
 	template <typename T, typename... Args>
 	inline std::unique_ptr<T> MakeUniquePtrHelper(std::false_type, Args&&... args)
 	{
-#ifdef KLAYGE_CXX14_LIBRARY_MAKE_UNIQUE
 		return std::make_unique<T>(std::forward<Args>(args)...);
-#else
-		return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
-#endif
 	}
 
 	template <typename T, typename... Args>
@@ -201,12 +197,7 @@ namespace KlayGE
 		static_assert(0 == std::extent<T>::value,
 			"make_unique<T[N]>() is forbidden, please use make_unique<T[]>().");
 
-#ifdef KLAYGE_CXX14_LIBRARY_MAKE_UNIQUE
 		return std::make_unique<T>(size);
-#else
-		typedef typename std::remove_extent<T>::type U;
-		return std::unique_ptr<T>(new U[size]());
-#endif
 	}
 
 	template <typename T, typename... Args>
@@ -214,72 +205,6 @@ namespace KlayGE
 	{
 		return MakeUniquePtrHelper<T>(std::is_array<T>(), std::forward<Args>(args)...);
 	}
-
-	#define PRIME_NUM 0x9e3779b9
-
-#ifdef KLAYGE_CXX11_CORE_CONSTEXPR_SUPPORT
-#ifdef KLAYGE_COMPILER_MSVC
-#pragma warning(disable: 4307) // The hash here could cause integral constant overflow
-#endif
-
-	constexpr size_t _Hash(char const * str, size_t seed)
-	{
-		return 0 == *str ? seed : _Hash(str + 1, seed ^ (*str + PRIME_NUM + (seed << 6) + (seed >> 2)));
-	}
-
-#ifdef KLAYGE_COMPILER_MSVC
-	template <size_t N>
-	struct EnsureConst
-	{
-		static const size_t value = N;
-	};
-
-	#define CT_HASH(x) (EnsureConst<_Hash(x, 0)>::value)
-#else
-	#define CT_HASH(x) (_Hash(x, 0))
-#endif
-#else
-	#if defined(KLAYGE_COMPILER_MSVC)
-		#define FORCEINLINE __forceinline
-	#else
-		#define FORCEINLINE inline
-	#endif
-
-	FORCEINLINE size_t _Hash(const char (&str)[1])
-	{
-		return *str + PRIME_NUM;
-	}
-
-	template <size_t N>
-	FORCEINLINE size_t _Hash(const char (&str)[N])
-	{
-		typedef const char (&truncated_str)[N - 1];
-		size_t seed = _Hash((truncated_str)str);
-		return seed ^ (*(str + N - 1) + PRIME_NUM + (seed << 6) + (seed >> 2));
-	}
-
-	template <size_t N>
-	FORCEINLINE size_t CT_HASH(const char (&str)[N])
-	{
-		typedef const char (&truncated_str)[N - 1];
-		return _Hash((truncated_str)str);
-	}
-
-	#undef FORCEINLINE
-#endif
-
-	inline size_t RT_HASH(char const * str)
-	{
-		size_t seed = 0;
-		while (*str != 0)
-		{
-			seed ^= (*str + PRIME_NUM + (seed << 6) + (seed >> 2));
-			++ str;
-		}
-		return seed;
-	}
-
-#undef PRIME_NUM
 }
 
 #endif		// _KFL_UTIL_HPP

@@ -15,8 +15,6 @@
 #define KLAYGE_MTL_EDITOR_CORE_API KLAYGE_SYMBOL_IMPORT
 #endif
 
-#include "Commands.hpp"
-
 namespace KlayGE
 {
 	class KLAYGE_MTL_EDITOR_CORE_API MtlEditorCore : public App3DFramework
@@ -24,12 +22,19 @@ namespace KlayGE
 	public:
 		explicit MtlEditorCore(void* native_wnd);
 
-		virtual bool ConfirmDevice() const override;
-
 		void Resize(uint32_t width, uint32_t height);
 
-		void OpenModel(std::string const & name);
+		bool OpenModel(std::string const & name);
 		void SaveAsModel(std::string const & name);
+
+		char const * SkyboxName() const;
+		void SkyboxName(std::string const & name);
+
+		void DisplaySSVO(bool ssvo);
+		void DisplayHDR(bool hdr);
+		void DisplayAA(bool aa);
+		void DisplayGamma(bool gamma);
+		void DisplayColorGrading(bool cg);
 
 		uint32_t NumFrames() const;
 		float CurrFrame() const;
@@ -41,19 +46,14 @@ namespace KlayGE
 		uint32_t VertexStreamUsage(uint32_t mesh_id, uint32_t stream_index, uint32_t usage_index) const;
 		uint32_t SelectedMesh() const;
 		uint32_t MaterialID(uint32_t mesh_id) const;
-		float3 const & AmbientMaterial(uint32_t mtl_id) const;
-		float3 const & DiffuseMaterial(uint32_t mtl_id) const;
-		float3 const & SpecularMaterial(uint32_t mtl_id) const;
-		float ShininessMaterial(uint32_t mtl_id) const;
-		float3 const & EmitMaterial(uint32_t mtl_id) const;
+		uint32_t NumMaterials() const;
+		char const * MaterialName(uint32_t mtl_id) const;
+		float3 const & AlbedoMaterial(uint32_t mtl_id) const;
+		float MetalnessMaterial(uint32_t mtl_id) const;
+		float GlossinessMaterial(uint32_t mtl_id) const;
+		float3 const & EmissiveMaterial(uint32_t mtl_id) const;
 		float OpacityMaterial(uint32_t mtl_id) const;
-		char const * DiffuseTexture(uint32_t mtl_id) const;
-		char const * SpecularTexture(uint32_t mtl_id) const;
-		char const * ShininessTexture(uint32_t mtl_id) const;
-		char const * NormalTexture(uint32_t mtl_id) const;
-		char const * HeightTexture(uint32_t mtl_id) const;
-		char const * EmitTexture(uint32_t mtl_id) const;
-		char const * OpacityTexture(uint32_t mtl_id) const;
+		char const * Texture(uint32_t mtl_id, uint32_t slot) const;
 		uint32_t DetailMode(uint32_t mtl_id) const;
 		float HeightOffset(uint32_t mtl_id) const;
 		float HeightScale(uint32_t mtl_id) const;
@@ -61,25 +61,20 @@ namespace KlayGE
 		float InsideTessHint(uint32_t mtl_id) const;
 		float MinTess(uint32_t mtl_id) const;
 		float MaxTess(uint32_t mtl_id) const;
-		uint32_t NumHistroyCmds() const;
-		char const * HistroyCmdName(uint32_t index) const;
-		uint32_t EndCmdIndex() const;
+		bool TransparentMaterial(uint32_t mtl_id) const;
+		float AlphaTestMaterial(uint32_t mtl_id) const;
+		bool SSSMaterial(uint32_t mtl_id) const;
 
 		void CurrFrame(float frame);
 		void SelectMesh(uint32_t mesh_id);
-		void AmbientMaterial(uint32_t mtl_id, float3 const & value);
-		void DiffuseMaterial(uint32_t mtl_id, float3 const & value);
-		void SpecularMaterial(uint32_t mtl_id, float3 const & value);
-		void ShininessMaterial(uint32_t mtl_id, float value);
-		void EmitMaterial(uint32_t mtl_id, float3 const & value);
+		void MaterialID(uint32_t mesh_id, uint32_t mtl_id);
+		void MaterialName(uint32_t mtl_id, std::string const & name);
+		void AlbedoMaterial(uint32_t mtl_id, float3 const & value);
+		void MetalnessMaterial(uint32_t mtl_id, float value);
+		void GlossinessMaterial(uint32_t mtl_id, float value);
+		void EmissiveMaterial(uint32_t mtl_id, float3 const & value);
 		void OpacityMaterial(uint32_t mtl_id, float value);
-		void DiffuseTexture(uint32_t mtl_id, std::string const & name);
-		void SpecularTexture(uint32_t mtl_id, std::string const & name);
-		void ShininessTexture(uint32_t mtl_id, std::string const & name);
-		void NormalTexture(uint32_t mtl_id, std::string const & name);
-		void HeightTexture(uint32_t mtl_id, std::string const & name);
-		void EmitTexture(uint32_t mtl_id, std::string const & name);
-		void OpacityTexture(uint32_t mtl_id, std::string const & name);
+		void Texture(uint32_t mtl_id, uint32_t slot, std::string const & name);
 		void DetailMode(uint32_t mtl_id, uint32_t value);
 		void HeightOffset(uint32_t mtl_id, float value);
 		void HeightScale(uint32_t mtl_id, float value);
@@ -87,20 +82,33 @@ namespace KlayGE
 		void InsideTessHint(uint32_t mtl_id, float value);
 		void MinTess(uint32_t mtl_id, float value);
 		void MaxTess(uint32_t mtl_id, float value);
+		void TransparentMaterial(uint32_t mtl_id, bool value);
+		void AlphaTestMaterial(uint32_t mtl_id, float value);
+		void SSSMaterial(uint32_t mtl_id, bool value);
+
+		uint32_t CopyMaterial(uint32_t mtl_id);
+		uint32_t ImportMaterial(std::string const & name);
+		void ExportMaterial(uint32_t mtl_id, std::string const & name);
 
 		void SkinningOn(bool on);
+		void LightOn(bool on);
 		void FPSCameraOn(bool on);
 		void LineModeOn(bool on);
+		void ImposterModeOn(bool on);
 		void Visualize(int index);
 		void MouseMove(int x, int y, uint32_t button);
 		void MouseUp(int x, int y, uint32_t button);
 		void MouseDown(int x, int y, uint32_t button);
 		void KeyPress(int key);
 
-		void ExecuteCommand(MtlEditorCommandPtr const & cmd);
-		void Undo();
-		void Redo();
-		void ClearHistroy();
+	// Callbacks
+	public:
+		typedef void(__stdcall *UpdateSelectEntityEvent)(uint32_t obj_id);
+
+		void UpdateSelectEntityCallback(UpdateSelectEntityEvent callback)
+		{
+			update_select_entity_event_ = callback;
+		}
 
 	private:
 		virtual void OnCreate() override;
@@ -114,9 +122,11 @@ namespace KlayGE
 	private:
 		FontPtr font_;
 
-		LightSourcePtr light_;
+		LightSourcePtr ambient_light_;
+		LightSourcePtr main_light_;
 
 		SceneObjectPtr model_;
+		SceneObjectPtr imposter_;
 		SceneObjectPtr axis_;
 		SceneObjectPtr grid_;
 		SceneObjectPtr sky_box_;
@@ -127,8 +137,13 @@ namespace KlayGE
 
 		DeferredRenderingLayer* deferred_rendering_;
 
+		std::string skybox_name_;
+		TexturePtr default_cube_map_;
+
 		bool skinning_;
 		float curr_frame_;
+
+		bool imposter_mode_;
 
 		std::string last_file_path_;
 
@@ -143,8 +158,7 @@ namespace KlayGE
 		uint32_t selected_obj_;
 		SceneObjectPtr selected_bb_;
 
-		std::vector<MtlEditorCommandPtr> command_history_;
-		uint32_t end_command_index_;
+		UpdateSelectEntityEvent update_select_entity_event_;
 	};
 }
 

@@ -6,6 +6,7 @@
 #include <KlayGE/RenderEngine.hpp>
 #include <KlayGE/RenderEffect.hpp>
 #include <KlayGE/RenderFactory.hpp>
+#include <KlayGE/RenderMaterial.hpp>
 #include <KlayGE/ElementFormat.hpp>
 #include <KlayGE/Context.hpp>
 #include <KlayGE/App3D.hpp>
@@ -67,29 +68,39 @@ void DetailedSkinnedMesh::UpdateEffectAttrib()
 {
 	effect_attrs_ &= ~EA_TransparencyBack;
 	effect_attrs_ &= ~EA_TransparencyFront;
+	effect_attrs_ &= ~EA_AlphaTest;
+	effect_attrs_ &= ~EA_SSS;
 	effect_attrs_ &= ~EA_SpecialShading;
 
-	if (!(effect_attrs_ & EA_AlphaTest) && (mtl_->opacity < 1))
+	if (mtl_->transparent)
 	{
 		effect_attrs_ |= EA_TransparencyBack;
 		effect_attrs_ |= EA_TransparencyFront;
 	}
-	if ((mtl_->emit.x() > 0) || (mtl_->emit.y() > 0) || (mtl_->emit.z() > 0) || emit_tex_
+	if (mtl_->alpha_test > 0)
+	{
+		effect_attrs_ |= EA_AlphaTest;
+	}
+	if (mtl_->sss)
+	{
+		effect_attrs_ |= EA_SSS;
+	}
+	if ((mtl_->emissive.x() > 0) || (mtl_->emissive.y() > 0) || (mtl_->emissive.z() > 0) || textures_[RenderMaterial::TS_Emissive]
 		|| (effect_attrs_ & EA_TransparencyBack) || (effect_attrs_ & EA_TransparencyFront)
 		|| (effect_attrs_ & EA_Reflection))
 	{
 		effect_attrs_ |= EA_SpecialShading;
 	}
+
+	this->UpdateTechniques();
 }
 
 void DetailedSkinnedMesh::UpdateMaterial()
 {
-	diffuse_tex_.reset();
-	specular_tex_.reset();
-	shininess_tex_.reset();
-	normal_tex_.reset();
-	height_tex_.reset();
-	emit_tex_.reset();
+	for (size_t i = 0; i < textures_.size(); ++ i)
+	{
+		textures_[i].reset();
+	}
 
 	StaticMesh::BuildMeshInfo();
 }
@@ -154,7 +165,7 @@ void DetailedSkinnedModel::DoBuildModelInfo()
 	{
 		StaticMeshPtr mesh = checked_pointer_cast<StaticMesh>(renderable);
 		total_num_vertices += mesh->NumVertices();
-		total_num_indices += mesh->NumTriangles() * 3;
+		total_num_indices += mesh->NumIndices();
 	}
 
 	RenderFactory& rf = Context::Instance().RenderFactoryInstance();
@@ -330,7 +341,7 @@ void DetailedSkinnedModel::DoBuildModelInfo()
 			{
 				StaticMeshPtr mesh = checked_pointer_cast<StaticMesh>(renderable);
 				MathLib::compute_normal(normals.begin() + mesh->StartVertexLocation(),
-					indices.begin() + mesh->StartIndexLocation(), indices.begin() + mesh->StartIndexLocation() + mesh->NumTriangles() * 3,
+					indices.begin() + mesh->StartIndexLocation(), indices.begin() + mesh->StartIndexLocation() + mesh->NumIndices(),
 					positions.begin() + mesh->StartVertexLocation(), positions.begin() + mesh->StartVertexLocation() + mesh->NumVertices());
 			}
 		}
@@ -343,7 +354,7 @@ void DetailedSkinnedModel::DoBuildModelInfo()
 		{
 			StaticMeshPtr mesh = checked_pointer_cast<StaticMesh>(renderable);
 			MathLib::compute_tangent(tangents.begin() + mesh->StartVertexLocation(), binormals.begin() + mesh->StartVertexLocation(),
-				indices.begin() + mesh->StartIndexLocation(), indices.begin() + mesh->StartIndexLocation() + mesh->NumTriangles() * 3,
+				indices.begin() + mesh->StartIndexLocation(), indices.begin() + mesh->StartIndexLocation() + mesh->NumIndices(),
 				positions.begin() + mesh->StartVertexLocation(), positions.begin() + mesh->StartVertexLocation() + mesh->NumVertices(),
 				texcoords.begin() + mesh->StartVertexLocation(), normals.begin() + mesh->StartVertexLocation());
 		}
@@ -391,7 +402,7 @@ void DetailedSkinnedModel::DoBuildModelInfo()
 	if (has_skinned)
 	{
 		effect_ = SyncLoadRenderEffect("MtlEditorSkinning128.fxml");
-		if (!effect_->TechniqueByName("GBufferRT0Tech")->Validate())
+		if (!effect_->TechniqueByName("GBufferMRTTech")->Validate())
 		{
 			effect_ = SyncLoadRenderEffect("MtlEditorSkinning64.fxml");
 		}
@@ -484,4 +495,18 @@ void DetailedSkinnedModel::UpdateMaterial(uint32_t mtl_index)
 			mesh->UpdateMaterial();
 		}
 	}
+}
+
+uint32_t DetailedSkinnedModel::CopyMaterial(uint32_t mtl_index)
+{
+	uint32_t new_index = static_cast<uint32_t>(materials_.size());
+	materials_.push_back(MakeSharedPtr<RenderMaterial>(*materials_[mtl_index]));
+	return new_index;
+}
+
+uint32_t DetailedSkinnedModel::ImportMaterial(std::string const & name)
+{
+	uint32_t new_index = static_cast<uint32_t>(materials_.size());
+	materials_.push_back(SyncLoadRenderMaterial(name));
+	return new_index;
 }

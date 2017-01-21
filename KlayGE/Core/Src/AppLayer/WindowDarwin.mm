@@ -97,7 +97,7 @@ namespace KlayGE
 	}
 
 	Window::Window(std::string const & name, RenderSettings const & settings)
-		: active_(false), ready_(false), closed_(false), dpi_scale_(1)
+		: active_(false), ready_(false), closed_(false), dpi_scale_(1), win_rotation_(WR_Identity)
 	{
 		RegisterApp();
 
@@ -105,8 +105,16 @@ namespace KlayGE
 
 		NSScreen* mainDisplay = [NSScreen mainScreen];
 		NSRect initContentRect = NSMakeRect(settings.left, settings.top, settings.width, settings.height);
+
+#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_11
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 		NSUInteger initStyleMask = NSTitledWindowMask | NSMiniaturizableWindowMask | NSClosableWindowMask | NSResizableWindowMask;
-		
+#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_11
+#pragma GCC diagnostic pop
+#endif
+
 		// TODO: full screen support
 		ns_window_ = [[KlayGEWindow alloc] initWithContentRect:initContentRect
 											 styleMask:initStyleMask
@@ -128,7 +136,7 @@ namespace KlayGE
 	}
 
 	Window::Window(std::string const & name, RenderSettings const & settings, void* native_wnd)
-		: active_(false), ready_(false), closed_(false), dpi_scale_(1)
+		: active_(false), ready_(false), closed_(false), dpi_scale_(1), win_rotation_(WR_Identity)
 	{
 		KFL_UNUSED(name);
 		KFL_UNUSED(settings);
@@ -266,7 +274,14 @@ namespace KlayGE
 		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 		for (;;)
 		{
+#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_11
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 			NSEvent *event = [NSApp nextEventMatchingMask:NSAnyEventMask untilDate:nil inMode:NSDefaultRunLoopMode dequeue:YES];
+#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_11
+#pragma GCC diagnostic pop
+#endif
 			if (nil == event)
 			{
 				break;

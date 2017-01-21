@@ -37,7 +37,7 @@
 #include <KlayGE/D3D12/D3D12Adapter.hpp>
 #include <KlayGE/D3D12/D3D12RenderEngine.hpp>
 
-#if defined KLAYGE_PLATFORM_WINDOWS_RUNTIME
+#if defined KLAYGE_PLATFORM_WINDOWS_STORE
 #include <windows.ui.core.h>
 #include <windows.graphics.display.h>
 #endif
@@ -64,13 +64,13 @@ namespace KlayGE
 	class D3D12RenderWindow : public D3D12FrameBuffer
 	{
 	public:
-		D3D12RenderWindow(IDXGIFactory4Ptr const & gi_factory, D3D12AdapterPtr const & adapter,
-			std::string const & name, RenderSettings const & settings);
+		D3D12RenderWindow(D3D12AdapterPtr const & adapter, std::string const & name, RenderSettings const & settings);
 		~D3D12RenderWindow();
 
 		void Destroy();
 
-		void SwapBuffers();
+		void SwapBuffers() override;
+		void WaitOnSwapBuffers() override;
 
 		std::wstring const & Description() const;
 
@@ -111,14 +111,14 @@ namespace KlayGE
 		void OnExitSizeMove(Window const & win);
 		void OnSize(Window const & win, bool active);
 
-#ifdef KLAYGE_PLATFORM_WINDOWS_RUNTIME
+#ifdef KLAYGE_PLATFORM_WINDOWS_STORE
 		HRESULT OnStereoEnabledChanged(ABI::Windows::Graphics::Display::IDisplayInformation* sender,
 			IInspectable* args);
 #endif
 
 	private:
 		void UpdateSurfacesPtrs();
-		void ResetDevice();
+		void CreateSwapChain(ID3D12CommandQueue* d3d_cmd_queue);
 		void WaitForGPU();
 
 	private:
@@ -135,8 +135,8 @@ namespace KlayGE
 
 		D3D12AdapterPtr			adapter_;
 
-		IDXGIFactory4Ptr gi_factory_;
 		bool dxgi_stereo_support_;
+		bool dxgi_allow_tearing_;
 
 		DXGI_SWAP_CHAIN_DESC1 sc_desc1_;
 #ifdef KLAYGE_PLATFORM_WINDOWS_DESKTOP

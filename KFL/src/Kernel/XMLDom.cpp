@@ -32,7 +32,14 @@
 #include <KFL/Util.hpp>
 #include <KFL/ResIdentifier.hpp>
 
+#if defined(KLAYGE_COMPILER_CLANGC2)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-variable" // Ignore mpl_assertion_in_line_xxx
+#endif
 #include <boost/lexical_cast.hpp>
+#if defined(KLAYGE_COMPILER_CLANGC2)
+#pragma clang diagnostic pop
+#endif
 
 #include <rapidxml.hpp>
 #include <rapidxml_print.hpp>
@@ -193,7 +200,7 @@ namespace KlayGE
 		}
 	}
 
-	XMLNodePtr XMLNode::Parent()
+	XMLNodePtr XMLNode::Parent() const
 	{
 		rapidxml::xml_node<>* node = static_cast<rapidxml::xml_node<>*>(node_)->parent();
 		if (node)
@@ -206,7 +213,7 @@ namespace KlayGE
 		}
 	}
 
-	XMLAttributePtr XMLNode::FirstAttrib(std::string const & name)
+	XMLAttributePtr XMLNode::FirstAttrib(std::string const & name) const
 	{
 		rapidxml::xml_attribute<>* attr = static_cast<rapidxml::xml_node<>*>(node_)->first_attribute(name.c_str());
 		if (attr)
@@ -219,7 +226,7 @@ namespace KlayGE
 		}
 	}
 	
-	XMLAttributePtr XMLNode::LastAttrib(std::string const & name)
+	XMLAttributePtr XMLNode::LastAttrib(std::string const & name) const
 	{
 		rapidxml::xml_attribute<>* attr = static_cast<rapidxml::xml_node<>*>(node_)->last_attribute(name.c_str());
 		if (attr)
@@ -232,7 +239,7 @@ namespace KlayGE
 		}
 	}
 
-	XMLAttributePtr XMLNode::FirstAttrib()
+	XMLAttributePtr XMLNode::FirstAttrib() const
 	{
 		rapidxml::xml_attribute<>* attr = static_cast<rapidxml::xml_node<>*>(node_)->first_attribute();
 		if (attr)
@@ -245,7 +252,7 @@ namespace KlayGE
 		}
 	}
 
-	XMLAttributePtr XMLNode::LastAttrib()
+	XMLAttributePtr XMLNode::LastAttrib() const
 	{
 		rapidxml::xml_attribute<>* attr = static_cast<rapidxml::xml_node<>*>(node_)->last_attribute();
 		if (attr)
@@ -258,12 +265,12 @@ namespace KlayGE
 		}
 	}
 
-	XMLAttributePtr XMLNode::Attrib(std::string const & name)
+	XMLAttributePtr XMLNode::Attrib(std::string const & name) const
 	{
 		return this->FirstAttrib(name);
 	}
 
-	bool XMLNode::TryConvertAttrib(std::string const & name, int32_t& val, int32_t default_val)
+	bool XMLNode::TryConvertAttrib(std::string const & name, int32_t& val, int32_t default_val) const
 	{
 		val = default_val;
 
@@ -271,7 +278,7 @@ namespace KlayGE
 		return attr ? attr->TryConvert(val) : true;
 	}
 
-	bool XMLNode::TryConvertAttrib(std::string const & name, uint32_t& val, uint32_t default_val)
+	bool XMLNode::TryConvertAttrib(std::string const & name, uint32_t& val, uint32_t default_val) const
 	{
 		val = default_val;
 
@@ -279,7 +286,7 @@ namespace KlayGE
 		return attr ? attr->TryConvert(val) : true;
 	}
 
-	bool XMLNode::TryConvertAttrib(std::string const & name, float& val, float default_val)
+	bool XMLNode::TryConvertAttrib(std::string const & name, float& val, float default_val) const
 	{
 		val = default_val;
 
@@ -287,31 +294,31 @@ namespace KlayGE
 		return attr ? attr->TryConvert(val) : true;
 	}
 
-	int32_t XMLNode::AttribInt(std::string const & name, int32_t default_val)
+	int32_t XMLNode::AttribInt(std::string const & name, int32_t default_val) const
 	{
 		XMLAttributePtr attr = this->Attrib(name);
 		return attr ? attr->ValueInt() : default_val;
 	}
 
-	uint32_t XMLNode::AttribUInt(std::string const & name, uint32_t default_val)
+	uint32_t XMLNode::AttribUInt(std::string const & name, uint32_t default_val) const
 	{
 		XMLAttributePtr attr = this->Attrib(name);
 		return attr ? attr->ValueUInt() : default_val;
 	}
 
-	float XMLNode::AttribFloat(std::string const & name, float default_val)
+	float XMLNode::AttribFloat(std::string const & name, float default_val) const
 	{
 		XMLAttributePtr attr = this->Attrib(name);
 		return attr ? attr->ValueFloat() : default_val;
 	}
 
-	std::string XMLNode::AttribString(std::string const & name, std::string default_val)
+	std::string XMLNode::AttribString(std::string const & name, std::string default_val) const
 	{
 		XMLAttributePtr attr = this->Attrib(name);
 		return attr ? attr->ValueString() : default_val;
 	}
 
-	XMLNodePtr XMLNode::FirstNode(std::string const & name)
+	XMLNodePtr XMLNode::FirstNode(std::string const & name) const
 	{
 		rapidxml::xml_node<>* node = static_cast<rapidxml::xml_node<>*>(node_)->first_node(name.c_str());
 		if (node)
@@ -324,7 +331,7 @@ namespace KlayGE
 		}
 	}
 
-	XMLNodePtr XMLNode::LastNode(std::string const & name)
+	XMLNodePtr XMLNode::LastNode(std::string const & name) const
 	{
 		rapidxml::xml_node<>* node = static_cast<rapidxml::xml_node<>*>(node_)->last_node(name.c_str());
 		if (node)
@@ -337,7 +344,7 @@ namespace KlayGE
 		}
 	}
 
-	XMLNodePtr XMLNode::FirstNode()
+	XMLNodePtr XMLNode::FirstNode() const
 	{
 		rapidxml::xml_node<>* node = static_cast<rapidxml::xml_node<>*>(node_)->first_node();
 		if (node)
@@ -350,7 +357,7 @@ namespace KlayGE
 		}
 	}
 
-	XMLNodePtr XMLNode::LastNode()
+	XMLNodePtr XMLNode::LastNode() const
 	{
 		rapidxml::xml_node<>* node = static_cast<rapidxml::xml_node<>*>(node_)->last_node();
 		if (node)
@@ -363,7 +370,7 @@ namespace KlayGE
 		}
 	}
 
-	XMLNodePtr XMLNode::PrevSibling(std::string const & name)
+	XMLNodePtr XMLNode::PrevSibling(std::string const & name) const
 	{
 		rapidxml::xml_node<>* node = static_cast<rapidxml::xml_node<>*>(node_)->previous_sibling(name.c_str());
 		if (node)
@@ -376,7 +383,7 @@ namespace KlayGE
 		}
 	}
 
-	XMLNodePtr XMLNode::NextSibling(std::string const & name)
+	XMLNodePtr XMLNode::NextSibling(std::string const & name) const
 	{
 		rapidxml::xml_node<>* node = static_cast<rapidxml::xml_node<>*>(node_)->next_sibling(name.c_str());
 		if (node)
@@ -389,7 +396,7 @@ namespace KlayGE
 		}
 	}
 
-	XMLNodePtr XMLNode::PrevSibling()
+	XMLNodePtr XMLNode::PrevSibling() const
 	{
 		rapidxml::xml_node<>* node = static_cast<rapidxml::xml_node<>*>(node_)->previous_sibling();
 		if (node)
@@ -402,7 +409,7 @@ namespace KlayGE
 		}
 	}
 
-	XMLNodePtr XMLNode::NextSibling()
+	XMLNodePtr XMLNode::NextSibling() const
 	{
 		rapidxml::xml_node<>* node = static_cast<rapidxml::xml_node<>*>(node_)->next_sibling();
 		if (node)
@@ -539,7 +546,7 @@ namespace KlayGE
 		return name_;
 	}
 
-	XMLAttributePtr XMLAttribute::NextAttrib(std::string const & name)
+	XMLAttributePtr XMLAttribute::NextAttrib(std::string const & name) const
 	{
 		rapidxml::xml_attribute<>* attr = static_cast<rapidxml::xml_attribute<>*>(attr_)->next_attribute(name.c_str());
 		if (attr)
@@ -552,7 +559,7 @@ namespace KlayGE
 		}
 	}
 
-	XMLAttributePtr XMLAttribute::NextAttrib()
+	XMLAttributePtr XMLAttribute::NextAttrib() const
 	{
 		rapidxml::xml_attribute<>* attr = static_cast<rapidxml::xml_attribute<>*>(attr_)->next_attribute();
 		if (attr)

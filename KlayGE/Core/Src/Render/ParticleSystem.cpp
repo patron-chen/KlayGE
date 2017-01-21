@@ -39,10 +39,10 @@
 #include <KlayGE/ResLoader.hpp>
 #include <KFL/XMLDom.hpp>
 #include <KlayGE/DeferredRenderingLayer.hpp>
+#include <KFL/Hash.hpp>
 
 #include <fstream>
 
-#include <boost/functional/hash.hpp>
 #if defined(KLAYGE_COMPILER_GCC)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations" // Ignore auto_ptr declaration
@@ -329,6 +329,8 @@ namespace
 
 		std::shared_ptr<void> MainThreadStage()
 		{
+			std::lock_guard<std::mutex> lock(main_thread_stage_mutex_);
+
 			if (!*ps_desc_.ps)
 			{
 				ParticleSystemPtr ps = MakeSharedPtr<ParticleSystem>(NUM_PARTICLES);
@@ -399,6 +401,7 @@ namespace
 
 	private:
 		ParticleSystemDesc ps_desc_;
+		std::mutex main_thread_stage_mutex_;
 	};
 	
 #ifdef KLAYGE_HAS_STRUCT_PACK
@@ -425,6 +428,8 @@ namespace
 		{
 			RenderFactory& rf = Context::Instance().RenderFactoryInstance();
 
+			effect_ = SyncLoadRenderEffect("Particle.fxml");
+
 			rl_ = rf.MakeRenderLayout();
 			if (gs_support)
 			{
@@ -435,7 +440,8 @@ namespace
 				rl_->BindVertexStream(pos_vb, std::make_tuple(vertex_element(VEU_Position, 0, EF_ABGR32F),
 					vertex_element(VEU_TextureCoord, 0, EF_ABGR32F)));
 
-				simple_forward_tech_ = SyncLoadRenderEffect("Particle.fxml")->TechniqueByName("ParticleWithGS");
+				simple_forward_tech_ = effect_->TechniqueByName("ParticleWithGS");
+				vdm_tech_ = effect_->TechniqueByName("ParticleWithGSVDM");
 			}
 			else
 			{
@@ -470,36 +476,37 @@ namespace
 					sizeof(indices), indices);
 				rl_->BindIndexStream(ib, EF_R16UI);
 
-				simple_forward_tech_ = SyncLoadRenderEffect("Particle.fxml")->TechniqueByName("Particle");
+				simple_forward_tech_ = effect_->TechniqueByName("Particle");
+				vdm_tech_ = effect_->TechniqueByName("ParticleVDM");
 			}
 			technique_ = simple_forward_tech_;
 
-			effect_attrs_ |= EA_SimpleForward;
+			effect_attrs_ |= EA_VDM;
 		}
 
 		void SceneDepthTexture(TexturePtr const & tex)
 		{
-			*(technique_->Effect().ParameterByName("depth_tex")) = tex;
+			*(effect_->ParameterByName("depth_tex")) = tex;
 		}
 
 		void ParticleColorFrom(Color const & clr)
 		{
-			*(technique_->Effect().ParameterByName("particle_color_from")) = float3(clr.r(), clr.g(), clr.b());
+			*(effect_->ParameterByName("particle_color_from")) = float3(clr.r(), clr.g(), clr.b());
 		}
 
 		void ParticleColorTo(Color const & clr)
 		{
-			*(technique_->Effect().ParameterByName("particle_color_to")) = float3(clr.r(), clr.g(), clr.b());
+			*(effect_->ParameterByName("particle_color_to")) = float3(clr.r(), clr.g(), clr.b());
 		}
 
 		void ParticleAlphaFrom(TexturePtr const & tex)
 		{
-			*(technique_->Effect().ParameterByName("particle_alpha_from_tex")) = tex;
+			*(effect_->ParameterByName("particle_alpha_from_tex")) = tex;
 		}
 
 		void ParticleAlphaTo(TexturePtr const & tex)
 		{
-			*(technique_->Effect().ParameterByName("particle_alpha_to_tex")) = tex;
+			*(effect_->ParameterByName("particle_alpha_to_tex")) = tex;
 		}
 
 		void OnRenderBegin()
@@ -509,18 +516,18 @@ namespace
 			float4x4 const & view = camera.ViewMatrix();
 			float4x4 const & proj = camera.ProjMatrix();
 
-			*(technique_->Effect().ParameterByName("model_view")) = model_mat_ * view;
-			*(technique_->Effect().ParameterByName("proj")) = proj;
-			*(technique_->Effect().ParameterByName("far_plane")) = camera.FarPlane();
+			*(effect_->ParameterByName("model_view")) = model_mat_ * view;
+			*(effect_->ParameterByName("proj")) = proj;
+			*(effect_->ParameterByName("far_plane")) = camera.FarPlane();
 
 			float scale_x = sqrt(model_mat_(0, 0) * model_mat_(0, 0) + model_mat_(0, 1) * model_mat_(0, 1) + model_mat_(0, 2) * model_mat_(0, 2));
 			float scale_y = sqrt(model_mat_(1, 0) * model_mat_(1, 0) + model_mat_(1, 1) * model_mat_(1, 1) + model_mat_(1, 2) * model_mat_(1, 2));
-			*(technique_->Effect().ParameterByName("point_radius")) = 0.08f * std::max(scale_x, scale_y);
+			*(effect_->ParameterByName("point_radius")) = 0.08f * std::max(scale_x, scale_y);
 
 			auto drl = Context::Instance().DeferredRenderingLayerInstance();
 			if (drl)
 			{
-				*(technique_->Effect().ParameterByName("depth_tex")) = drl->CurrFrameDepthTex(drl->ActiveViewport());
+				*(effect_->ParameterByName("depth_tex")) = drl->CurrFrameDepthTex(drl->ActiveViewport());
 			}
 		}
 
@@ -590,7 +597,7 @@ namespace KlayGE
 
 
 	ParticleSystem::ParticleSystem(uint32_t max_num_particles)
-		: SceneObjectHelper(SOA_Moveable),
+		: SceneObjectHelper(SOA_Moveable | SOA_NotCastShadow),
 			particles_(max_num_particles),
 			gravity_(0.5f), force_(0, 0, 0), media_density_(0.0f)
 	{
@@ -1035,6 +1042,10 @@ namespace KlayGE
 		}
 
 		std::ofstream ofs(psml_name.c_str());
+		if (!ofs)
+		{
+			ofs.open((ResLoader::Instance().LocalFolder() + psml_name).c_str());
+		}
 		doc.Print(ofs);
 	}
 
@@ -1106,25 +1117,16 @@ namespace KlayGE
 
 	void PolylineParticleUpdater::Update(Particle& par, float elapse_time)
 	{
-		std::vector<float2> local_size_over_life;
-		std::vector<float2> local_mass_over_life;
-		std::vector<float2> local_opacity_over_life;
+		std::lock_guard<std::mutex> lock(update_mutex_);
 
-		{
-			std::lock_guard<std::mutex> lock(update_mutex_);
-			local_size_over_life = size_over_life_;
-			local_mass_over_life = mass_over_life_;
-			local_opacity_over_life = opacity_over_life_;
-		}
-
-		BOOST_ASSERT(!local_size_over_life.empty());
-		BOOST_ASSERT(!local_mass_over_life.empty());
-		BOOST_ASSERT(!local_opacity_over_life.empty());
+		BOOST_ASSERT(!size_over_life_.empty());
+		BOOST_ASSERT(!mass_over_life_.empty());
+		BOOST_ASSERT(!opacity_over_life_.empty());
 
 		float pos = (par.init_life - par.life) / par.init_life;
 
-		float cur_size = local_size_over_life.back().y();
-		for (auto iter = local_size_over_life.begin(); iter != local_size_over_life.end() - 1; ++ iter)
+		float cur_size = size_over_life_.back().y();
+		for (auto iter = size_over_life_.begin(); iter != size_over_life_.end() - 1; ++ iter)
 		{
 			if ((iter + 1)->x() >= pos)
 			{
@@ -1134,8 +1136,8 @@ namespace KlayGE
 			}
 		}
 
-		float cur_mass = local_mass_over_life.back().y();
-		for (auto iter = local_mass_over_life.begin(); iter != local_mass_over_life.end() - 1; ++ iter)
+		float cur_mass = mass_over_life_.back().y();
+		for (auto iter = mass_over_life_.begin(); iter != mass_over_life_.end() - 1; ++ iter)
 		{
 			if ((iter + 1)->x() >= pos)
 			{
@@ -1145,8 +1147,8 @@ namespace KlayGE
 			}
 		}
 
-		float cur_alpha = local_opacity_over_life.back().y();
-		for (auto iter = local_opacity_over_life.begin(); iter != local_opacity_over_life.end() - 1; ++ iter)
+		float cur_alpha = opacity_over_life_.back().y();
+		for (auto iter = opacity_over_life_.begin(); iter != opacity_over_life_.end() - 1; ++ iter)
 		{
 			if ((iter + 1)->x() >= pos)
 			{

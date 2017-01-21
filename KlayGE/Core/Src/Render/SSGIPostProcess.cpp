@@ -39,7 +39,7 @@
 namespace KlayGE
 {
 	SSGIPostProcess::SSGIPostProcess()
-			: PostProcess(L"SSGI")
+			: PostProcess(L"SSGI", false)
 	{
 		input_pins_.emplace_back("g_buffer_tex", TexturePtr());
 		input_pins_.emplace_back("depth_tex", TexturePtr());
@@ -47,11 +47,11 @@ namespace KlayGE
 
 		output_pins_.emplace_back("out_tex", TexturePtr());
 
-		this->Technique(SyncLoadRenderEffect("SSGI.fxml")->TechniqueByName("SSGI"));
+		auto effect = SyncLoadRenderEffect("SSGI.fxml");
+		this->Technique(effect, effect->TechniqueByName("SSGI"));
 
-		proj_param_ = technique_->Effect().ParameterByName("proj");
-		inv_proj_param_ = technique_->Effect().ParameterByName("inv_proj");
-		far_plane_param_ = technique_->Effect().ParameterByName("far_plane");
+		proj_param_ = effect->ParameterByName("proj");
+		inv_proj_param_ = effect->ParameterByName("inv_proj");
 	}
 
 	void SSGIPostProcess::OnRenderBegin()
@@ -61,6 +61,5 @@ namespace KlayGE
 		Camera const & camera = Context::Instance().AppInstance().ActiveCamera();
 		*proj_param_ = camera.ProjMatrix();
 		*inv_proj_param_ = camera.InverseProjMatrix();
-		*far_plane_param_ = float2(camera.FarPlane(), 1.0f / camera.FarPlane());
 	}
 }

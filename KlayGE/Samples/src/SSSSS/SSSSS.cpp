@@ -35,44 +35,6 @@ using namespace KlayGE;
 
 namespace
 {
-	class SSSMesh : public StaticMesh
-	{
-	public:
-		SSSMesh(RenderModelPtr const & model, std::wstring const & name)
-			: StaticMesh(model, name)
-		{
-		}
-
-		virtual void DoBuildMeshInfo() override
-		{
-			StaticMesh::DoBuildMeshInfo();
-
-			mtl_->shininess = 32;
-			mtl_->specular = float3(0.028f, 0.028f, 0.028f);
-
-			if (this->AlphaTest())
-			{
-				depth_tech_ = deferred_effect_->TechniqueByName("SSSDepthAlphaTestTech");
-				gbuffer_rt0_tech_ = deferred_effect_->TechniqueByName("SSSGBufferAlphaTestRT0Tech");
-				gbuffer_rt1_tech_ = deferred_effect_->TechniqueByName("SSSGBufferAlphaTestRT1Tech");
-				gbuffer_mrt_tech_ = deferred_effect_->TechniqueByName("SSSGBufferAlphaTestMRTTech");
-				gen_sm_tech_ = deferred_effect_->TechniqueByName("SSSGenShadowMapAlphaTestTech");
-				gen_sm_wo_dt_tech_ = deferred_effect_->TechniqueByName("SSSGenShadowMapWODepthTextureAlphaTestTech");
-			}
-			else
-			{
-				depth_tech_ = deferred_effect_->TechniqueByName("SSSDepthTech");
-				gbuffer_rt0_tech_ = deferred_effect_->TechniqueByName("SSSGBufferRT0Tech");
-				gbuffer_rt1_tech_ = deferred_effect_->TechniqueByName("SSSGBufferRT1Tech");
-				gbuffer_mrt_tech_ = deferred_effect_->TechniqueByName("SSSGBufferMRTTech");
-				gen_sm_tech_ = deferred_effect_->TechniqueByName("SSSGenShadowMapTech");
-				gen_sm_wo_dt_tech_ = deferred_effect_->TechniqueByName("SSSGenShadowMapWODepthTextureTech");
-			}
-
-			effect_attrs_ |= EA_SSS;
-		}
-	};
-
 	enum
 	{
 		Exit,
@@ -105,18 +67,12 @@ SSSSSApp::SSSSSApp()
 	ResLoader::Instance().AddPath("../../Samples/media/SSSSS");
 }
 
-bool SSSSSApp::ConfirmDevice() const
-{
-	return true;
-}
-
 void SSSSSApp::OnCreate()
 {
-	RenderablePtr scene_model = ASyncLoadModel("ScifiRoom.7z//ScifiRoom.meshml",
+	RenderablePtr scene_model = ASyncLoadModel("ScifiRoom.meshml",
 		EAH_GPU_Read | EAH_Immutable);
 	RenderablePtr sss_model = ASyncLoadModel("Infinite-Level_02.meshml",
-		EAH_GPU_Read | EAH_Immutable,
-		CreateModelFactory<RenderModel>(), CreateMeshFactory<SSSMesh>());
+		EAH_GPU_Read | EAH_Immutable);
 	TexturePtr c_cube = ASyncLoadTexture("Lake_CraterLake03_filtered_c.dds",
 		EAH_GPU_Read | EAH_Immutable);
 	TexturePtr y_cube = ASyncLoadTexture("Lake_CraterLake03_filtered_y.dds",
@@ -235,7 +191,7 @@ void SSSSSApp::SSSStrengthChangedHandler(KlayGE::UISlider const & sender)
 	deferred_rendering_->SSSStrength(strength);
 
 	std::wostringstream stream;
-	stream << L"SSS strength: " << strength;
+	stream << L"SSS Strength: " << strength;
 	dialog_params_->Control<UIStatic>(id_sss_strength_static_)->SetText(stream.str());
 }
 
@@ -260,7 +216,7 @@ void SSSSSApp::TranslucencyStrengthChangedHandler(KlayGE::UISlider const & sende
 	deferred_rendering_->TranslucencyStrength(strength);
 
 	std::wostringstream stream;
-	stream << L"Translucency strength: " << strength;
+	stream << L"Translucency Strength: " << strength;
 	dialog_params_->Control<UIStatic>(id_translucency_strength_static_)->SetText(stream.str());
 }
 

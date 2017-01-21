@@ -41,7 +41,7 @@
 namespace KlayGE
 {
 	Window::Window(std::string const & /*name*/, RenderSettings const & settings)
-		: active_(false), ready_(false), closed_(false), dpi_scale_(1)
+		: active_(false), ready_(false), closed_(false), dpi_scale_(1), win_rotation_(WR_Identity)
 	{
 		a_window_ = nullptr;
 
@@ -82,7 +82,7 @@ namespace KlayGE
 	}
 
 	Window::Window(std::string const & /*name*/, RenderSettings const & settings, void* native_wnd)
-		: active_(false), ready_(false), closed_(false), dpi_scale_(1)
+		: active_(false), ready_(false), closed_(false), dpi_scale_(1), win_rotation_(WR_Identity)
 	{
 		a_window_ = static_cast<ANativeWindow*>(native_wnd);
 
@@ -250,7 +250,6 @@ namespace KlayGE
 					}
 					break;
 
-#if (__ANDROID_API__ >= 12)
 				case AINPUT_SOURCE_JOYSTICK:
 					{
 						for (uint32_t i = 0; i < 8; i++)
@@ -259,7 +258,6 @@ namespace KlayGE
 						}
 					}
 					break;
-#endif
 
 				default:
 					break;
@@ -289,11 +287,9 @@ namespace KlayGE
 				}
 				break;
 
-#if (__ANDROID_API__ >= 12)
 			case AINPUT_SOURCE_JOYSTICK:
 				win->OnJoystickButtons()(*win, AMotionEvent_getButtonState(event));
 				break;
-#endif
 
 			default:
 				break;

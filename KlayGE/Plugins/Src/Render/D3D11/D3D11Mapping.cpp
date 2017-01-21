@@ -19,6 +19,7 @@
 #include <KlayGE/RenderEngine.hpp>
 #include <KlayGE/GraphicsBuffer.hpp>
 
+#include <system_error>
 #include <boost/assert.hpp>
 
 #include <KlayGE/D3D11/D3D11RenderEngine.hpp>
@@ -631,7 +632,7 @@ namespace KlayGE
 		}
 	}
 
-	D3D11_SO_DECLARATION_ENTRY D3D11Mapping::Mapping(ShaderDesc::StreamOutputDecl const & decl, uint8_t slot)
+	D3D11_SO_DECLARATION_ENTRY D3D11Mapping::Mapping(ShaderDesc::StreamOutputDecl const & decl)
 	{
 		D3D11_SO_DECLARATION_ENTRY ret;
 
@@ -639,7 +640,7 @@ namespace KlayGE
 		ret.SemanticIndex = decl.usage_index;
 		ret.StartComponent = decl.start_component;
 		ret.ComponentCount = decl.component_count;
-		ret.OutputSlot = slot;
+		ret.OutputSlot = decl.slot;
 		switch (decl.usage)
 		{
 		// Vertex xyzs
@@ -895,7 +896,7 @@ namespace KlayGE
 			return DXGI_FORMAT_BC7_UNORM_SRGB;
 
 		default:
-			THR(errc::function_not_supported);
+			THR(std::errc::function_not_supported);
 		}
 	}
 
@@ -1105,7 +1106,7 @@ namespace KlayGE
 			return EF_BC7_SRGB;
 
 		default:
-			THR(errc::function_not_supported);
+			THR(std::errc::function_not_supported);
 		}
 	}
 }

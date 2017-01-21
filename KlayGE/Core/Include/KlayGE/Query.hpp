@@ -25,7 +25,7 @@
 
 namespace KlayGE
 {
-	class KLAYGE_CORE_API Query
+	class KLAYGE_CORE_API Query : boost::noncopyable
 	{
 	public:
 		virtual ~Query();
@@ -59,6 +59,15 @@ namespace KlayGE
 		virtual ~TimerQuery();
 
 		virtual double TimeElapsed() = 0; // In second.
+	};
+
+	class KLAYGE_CORE_API SOStatisticsQuery : public Query
+	{
+	public:
+		virtual ~SOStatisticsQuery();
+
+		virtual uint64_t NumPrimitivesWritten() = 0;
+		virtual uint64_t PrimitivesGenerated() = 0;
 	};
 }
 

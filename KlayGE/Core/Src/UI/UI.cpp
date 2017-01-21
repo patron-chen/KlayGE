@@ -31,6 +31,7 @@
 #include <KlayGE/Font.hpp>
 #include <KFL/Thread.hpp>
 #include <KlayGE/TransientBuffer.hpp>
+#include <KFL/Hash.hpp>
 
 #ifdef Bool
 #undef Bool		// for boost::foreach
@@ -105,14 +106,15 @@ namespace KlayGE
 
 			uint32_t const INDEX_PER_QUAD = restart_ ? 5 : 6;
 			uint32_t const INIT_NUM_QUAD = 1024;
-			tb_vb_ = MakeSharedPtr<TransientBuffer>(static_cast<uint32_t>(INIT_NUM_QUAD * 4 * sizeof(UIManager::VertexFormat)), TransientBuffer::BF_Vertex);
-			tb_ib_ = MakeSharedPtr<TransientBuffer>(static_cast<uint32_t>(INIT_NUM_QUAD * INDEX_PER_QUAD * sizeof(uint16_t)), TransientBuffer::BF_Index);
+			tb_vb_ = MakeUniquePtr<TransientBuffer>(static_cast<uint32_t>(INIT_NUM_QUAD * 4 * sizeof(UIManager::VertexFormat)), TransientBuffer::BF_Vertex);
+			tb_ib_ = MakeUniquePtr<TransientBuffer>(static_cast<uint32_t>(INIT_NUM_QUAD * INDEX_PER_QUAD * sizeof(uint16_t)), TransientBuffer::BF_Index);
 
 			rl_->BindVertexStream(tb_vb_->GetBuffer(), std::make_tuple(vertex_element(VEU_Position, 0, EF_BGR32F),
 												vertex_element(VEU_Diffuse, 0, EF_ABGR32F),
 												vertex_element(VEU_TextureCoord, 0, EF_GR32F)));
 			rl_->BindIndexStream(tb_ib_->GetBuffer(), EF_R16UI);
 
+			effect_ = effect;
 			if (texture)
 			{
 				technique_ = effect->TechniqueByName("UITec");
@@ -122,8 +124,8 @@ namespace KlayGE
 				technique_ = effect->TechniqueByName("UITecNoTex");
 			}
 
-			ui_tex_ep_ = technique_->Effect().ParameterByName("ui_tex");
-			half_width_height_ep_ = technique_->Effect().ParameterByName("half_width_height");
+			ui_tex_ep_ = effect->ParameterByName("ui_tex");
+			half_width_height_ep_ = effect->ParameterByName("half_width_height");
 		}
 
 		bool Empty() const
@@ -186,7 +188,7 @@ namespace KlayGE
 				rl_->StartIndexLocation(ind_offset / sizeof(uint16_t));
 				rl_->NumIndices(ind_length / sizeof(uint16_t));
 
-				re.Render(*this->GetRenderTechnique(), *rl_);
+				re.Render(*this->GetRenderEffect(), *this->GetRenderTechnique(), *rl_);
 			}
 
 			for (size_t i = 0; i < tb_vb_sub_allocs_.size(); ++ i)
@@ -228,13 +230,13 @@ namespace KlayGE
 	private:
 		bool restart_;
 
-		RenderEffectParameterPtr ui_tex_ep_;
-		RenderEffectParameterPtr half_width_height_ep_;
+		RenderEffectParameter* ui_tex_ep_;
+		RenderEffectParameter* half_width_height_ep_;
 
 		TexturePtr texture_;
 
-		TransientBufferPtr tb_vb_;
-		TransientBufferPtr tb_ib_;
+		std::unique_ptr<TransientBuffer> tb_vb_;
+		std::unique_ptr<TransientBuffer> tb_ib_;
 		std::vector<SubAlloc> tb_vb_sub_allocs_;
 		std::vector<SubAlloc> tb_ib_sub_allocs_;
 	};
@@ -413,11 +415,11 @@ namespace KlayGE
 
 			XMLAttributePtr attr;
 
-			std::vector<XMLDocumentPtr> include_docs;
+			std::vector<std::unique_ptr<XMLDocument>> include_docs;
 			for (XMLNodePtr node = root->FirstNode("include"); node;)
 			{
 				attr = node->Attrib("name");
-				include_docs.push_back(MakeSharedPtr<XMLDocument>());
+				include_docs.push_back(MakeUniquePtr<XMLDocument>());
 				XMLNodePtr include_root = include_docs.back()->Parse(ResLoader::Instance().Open(attr->ValueString()));
 
 				for (XMLNodePtr child_node = include_root->FirstNode(); child_node; child_node = child_node->NextSibling())

@@ -59,6 +59,8 @@ namespace KlayGE
 	class SceneObjectCameraProxy;
 	typedef std::shared_ptr<SceneObjectCameraProxy> SceneObjectCameraProxyPtr;
 
+	class Blitter;
+	typedef std::shared_ptr<Blitter> BlitterPtr;
 	struct ElementInitData;
 	class Camera;
 	typedef std::shared_ptr<Camera> CameraPtr;
@@ -98,28 +100,22 @@ namespace KlayGE
 	typedef std::shared_ptr<RenderDecal> RenderDecalPtr;
 	class RenderEffect;
 	typedef std::shared_ptr<RenderEffect> RenderEffectPtr;
+	class RenderEffectTemplate;
+	typedef std::shared_ptr<RenderEffectTemplate> RenderEffectTemplatePtr;
 	class RenderTechnique;
-	typedef std::shared_ptr<RenderTechnique> RenderTechniquePtr;
 	class RenderPass;
 	typedef std::shared_ptr<RenderPass> RenderPassPtr;
 	class RenderEffectConstantBuffer;
-	typedef std::shared_ptr<RenderEffectConstantBuffer> RenderEffectConstantBufferPtr;
 	class RenderEffectParameter;
-	typedef std::shared_ptr<RenderEffectParameter> RenderEffectParameterPtr;
 	class RenderVariable;
-	typedef std::shared_ptr<RenderVariable> RenderVariablePtr;
 	class RenderEffectAnnotation;
 	typedef std::shared_ptr<RenderEffectAnnotation> RenderEffectAnnotationPtr;
 	struct RasterizerStateDesc;
 	struct DepthStencilStateDesc;
 	struct BlendStateDesc;
 	struct SamplerStateDesc;
-	class RasterizerStateObject;
-	typedef std::shared_ptr<RasterizerStateObject> RasterizerStateObjectPtr;
-	class DepthStencilStateObject;
-	typedef std::shared_ptr<DepthStencilStateObject> DepthStencilStateObjectPtr;
-	class BlendStateObject;
-	typedef std::shared_ptr<BlendStateObject> BlendStateObjectPtr;
+	class RenderStateObject;
+	typedef std::shared_ptr<RenderStateObject> RenderStateObjectPtr;
 	class SamplerStateObject;
 	typedef std::shared_ptr<SamplerStateObject> SamplerStateObjectPtr;
 	class ShaderObject;
@@ -206,6 +202,10 @@ namespace KlayGE
 	typedef std::shared_ptr<OcclusionQuery> OcclusionQueryPtr;
 	class ConditionalRender;
 	typedef std::shared_ptr<ConditionalRender> ConditionalRenderPtr;
+	class TimerQuery;
+	typedef std::shared_ptr<TimerQuery> TimerQueryPtr;
+	class SOStatisticsQuery;
+	typedef std::shared_ptr<SOStatisticsQuery> SOStatisticsQueryPtr;
 	class PostProcess;
 	typedef std::shared_ptr<PostProcess> PostProcessPtr;
 	class PostProcessChain;
@@ -303,6 +303,8 @@ namespace KlayGE
 	typedef std::shared_ptr<TransientBuffer> TransientBufferPtr;
 	class Fence;
 	typedef std::shared_ptr<Fence> FencePtr;
+	class Imposter;
+	typedef std::shared_ptr<Imposter> ImposterPtr;
 
 	class UIManager;
 	class UIElement;

@@ -30,8 +30,6 @@
 #include <vector>
 #include <unordered_map>
 
-#include <boost/noncopyable.hpp>
-
 namespace KlayGE
 {
 	class KLAYGE_CORE_API SceneManager : boost::noncopyable
@@ -103,7 +101,8 @@ namespace KlayGE
 
 		void UpdateThreadFunc();
 
-		BoundOverlap VisibleTestFromParent(SceneObject* obj, float3 const & eye_pos, float4x4 const & view_proj);
+		BoundOverlap VisibleTestFromParent(SceneObject* obj, float3 const & view_dir, float3 const & eye_pos,
+			float4x4 const & view_proj);
 
 	protected:
 		std::vector<CameraPtr> cameras_;

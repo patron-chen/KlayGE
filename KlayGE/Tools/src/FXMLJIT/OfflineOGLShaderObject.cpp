@@ -34,6 +34,7 @@
 #include <KFL/ResIdentifier.hpp>
 #include <KFL/Math.hpp>
 #include <KlayGE/ResLoader.hpp>
+#include <KFL/Hash.hpp>
 
 #include <cstdio>
 #include <string>
@@ -53,6 +54,9 @@
 #endif
 #ifndef D3DCOMPILE_PREFER_FLOW_CONTROL
 #define D3DCOMPILE_PREFER_FLOW_CONTROL 0x00000400
+#endif
+#ifndef D3DCOMPILE_ENABLE_STRICTNESS
+#define D3DCOMPILE_ENABLE_STRICTNESS 0x00000800
 #endif
 
 #include "OfflineRenderEffect.hpp"
@@ -321,7 +325,7 @@ namespace KlayGE
 					}
 					macros.emplace_back("KLAYGE_FRAG_DEPTH", "1");
 
-					uint32_t const flags = D3DCOMPILE_PREFER_FLOW_CONTROL | D3DCOMPILE_SKIP_OPTIMIZATION;
+					uint32_t const flags = D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_PREFER_FLOW_CONTROL | D3DCOMPILE_SKIP_OPTIMIZATION;
 					code = this->CompileToDXBC(type, effect, tech, pass, macros, sd.func_name.c_str(), shader_profile, flags);
 					if (code.empty())
 					{
@@ -358,47 +362,15 @@ namespace KlayGE
 									break;
 
 								default:
-								case 0:
+									BOOST_ASSERT(false);
 									gsv = GSV_400;
 									break;
 								}
 								break;
 
-							case 3:
-								switch (caps.minor_version)
-								{
-								case 3:
-									gsv = GSV_330;
-									break;
-
-								case 2:
-									gsv = GSV_150;
-									break;
-
-								case 1:
-									gsv = GSV_140;
-									break;
-
-								default:
-								case 0:
-									gsv = GSV_130;
-									break;
-								}
-								break;
-
-							case 2:
 							default:
-								switch (caps.minor_version)
-								{
-								case 1:
-									gsv = GSV_120;
-									break;
-
-								default:
-								case 0:
-									gsv = GSV_110;
-									break;
-								}
+								BOOST_ASSERT(false);
+								gsv = GSV_110;
 								break;
 							}
 

@@ -18,18 +18,25 @@
 #include <windows.h>
 #include <control.h>
 #include <d3d9.h>
+#ifdef KLAYGE_COMPILER_GCC
+#define _WIN32_WINNT_BACKUP _WIN32_WINNT
+#undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0501
+#endif
 #include <strmif.h>
+#ifdef KLAYGE_COMPILER_GCC
+#undef _WIN32_WINNT
+#define _WIN32_WINNT _WIN32_WINNT_BACKUP
+#endif
 #include <vmr9.h>
 
 #include <string>
-
-#include <boost/noncopyable.hpp>
 
 #include <KlayGE/Show.hpp>
 
 namespace KlayGE
 {
-	class DShowEngine : boost::noncopyable, public ShowEngine
+	class DShowEngine : public ShowEngine
 	{
 	public:
 		DShowEngine();

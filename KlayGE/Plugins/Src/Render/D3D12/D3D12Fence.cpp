@@ -41,7 +41,7 @@
 namespace KlayGE
 {
 	D3D12Fence::D3D12Fence()
-			: fence_val_(1)
+			: last_completed_val_(0), fence_val_(1)
 	{
 		RenderFactory& rf = Context::Instance().RenderFactoryInstance();
 		D3D12RenderEngine& re = *checked_cast<D3D12RenderEngine*>(&rf.RenderEngineInstance());
@@ -51,11 +51,7 @@ namespace KlayGE
 		TIF(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_ID3D12Fence, reinterpret_cast<void**>(&fence)));
 		fence_ = MakeCOMPtr(fence);
 
-#if (_WIN32_WINNT >= _WIN32_WINNT_VISTA)
 		fence_event_ = ::CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
-#else
-		fence_event_ = ::CreateEvent(nullptr, FALSE, FALSE, nullptr);
-#endif
 	}
 
 	D3D12Fence::~D3D12Fence()

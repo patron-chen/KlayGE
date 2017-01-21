@@ -19,15 +19,18 @@ int const LOG_2_TILE_SIZE = 4;
 int const TILE_SIZE = 1 << LOG_2_TILE_SIZE;
 
 TilingPostProcess::TilingPostProcess()
-	: PostProcess(L"Tiling",
+	: PostProcess(L"Tiling", false,
 		std::vector<std::string>(),
 		std::vector<std::string>(1, "src_tex"),
 		std::vector<std::string>(1, "output"),
-		SyncLoadRenderEffect("TilingPP.fxml")->TechniqueByName("Tiling"))
+		RenderEffectPtr(), nullptr)
 {
+	auto effect = SyncLoadRenderEffect("TilingPP.fxml");
+	this->Technique(effect, effect->TechniqueByName("Tiling"));
+
 	downsampler_ = SyncLoadPostProcess("Copy.ppml", "bilinear_copy");
 
-	tile_per_row_line_ep_ = technique_->Effect().ParameterByName("tile_per_row_line");
+	tile_per_row_line_ep_ = effect->ParameterByName("tile_per_row_line");
 }
 
 void TilingPostProcess::InputPin(uint32_t index, TexturePtr const & tex)

@@ -23,13 +23,13 @@
 
 #include <KlayGE/PreDeclare.hpp>
 #include <vector>
+#include <KlayGE/RenderMaterial.hpp>
 
 namespace KlayGE
 {
 	enum PassCategory
 	{
-		PC_Depth = 0,
-		PC_GBuffer,
+		PC_GBuffer = 0,
 		PC_ShadowMap,
 		PC_Shadowing,
 		PC_IndirectLighting,
@@ -37,6 +37,7 @@ namespace KlayGE
 		PC_Reflection,
 		PC_SpecialShading,
 		PC_SimpleForward,
+		PC_VDM,
 		PC_None
 	};
 
@@ -50,11 +51,8 @@ namespace KlayGE
 
 	enum PassRT
 	{
-		PRT_RT0 = 0,
-		PRT_RT1,
-		PRT_MRT,
+		PRT_MRT = 0,
 		PRT_ShadowMap,
-		PRT_ShadowMapWODepth,
 		PRT_CascadedShadowMap,
 		PRT_ReflectiveShadowMap,
 		PRT_None
@@ -71,22 +69,11 @@ namespace KlayGE
 
 	enum PassType
 	{
-		PT_OpaqueDepth = MakePassType<PRT_None, PTB_Opaque, PC_Depth>::value,
-		PT_TransparencyBackDepth = MakePassType<PRT_None, PTB_TransparencyBack, PC_Depth>::value,
-		PT_TransparencyFrontDepth = MakePassType<PRT_None, PTB_TransparencyFront, PC_Depth>::value,
-		
-		PT_OpaqueGBufferRT0 = MakePassType<PRT_RT0, PTB_Opaque, PC_GBuffer>::value,
-		PT_TransparencyBackGBufferRT0 = MakePassType<PRT_RT0, PTB_TransparencyBack, PC_GBuffer>::value,
-		PT_TransparencyFrontGBufferRT0 = MakePassType<PRT_RT0, PTB_TransparencyFront, PC_GBuffer>::value,
-		PT_OpaqueGBufferRT1 = MakePassType<PRT_RT1, PTB_Opaque, PC_GBuffer>::value,
-		PT_TransparencyBackGBufferRT1 = MakePassType<PRT_RT1, PTB_TransparencyBack, PC_GBuffer>::value,
-		PT_TransparencyFrontGBufferRT1 = MakePassType<PRT_RT1, PTB_TransparencyFront, PC_GBuffer>::value,
 		PT_OpaqueGBufferMRT = MakePassType<PRT_MRT, PTB_Opaque, PC_GBuffer>::value,
 		PT_TransparencyBackGBufferMRT = MakePassType<PRT_MRT, PTB_TransparencyBack, PC_GBuffer>::value,
 		PT_TransparencyFrontGBufferMRT = MakePassType<PRT_MRT, PTB_TransparencyFront, PC_GBuffer>::value,
 		
 		PT_GenShadowMap = MakePassType<PRT_ShadowMap, PTB_None, PC_ShadowMap>::value,
-		PT_GenShadowMapWODepthTexture = MakePassType<PRT_ShadowMapWODepth, PTB_None, PC_ShadowMap>::value,
 		PT_GenCascadedShadowMap = MakePassType<PRT_CascadedShadowMap, PTB_None, PC_ShadowMap>::value,
 		PT_GenReflectiveShadowMap = MakePassType<PRT_ReflectiveShadowMap, PTB_None, PC_ShadowMap>::value,
 		
@@ -106,7 +93,9 @@ namespace KlayGE
 		PT_TransparencyBackSpecialShading = MakePassType<PRT_None, PTB_TransparencyBack, PC_SpecialShading>::value,
 		PT_TransparencyFrontSpecialShading = MakePassType<PRT_None, PTB_TransparencyFront, PC_SpecialShading>::value,
 		
-		PT_SimpleForward = MakePassType<PRT_None, PTB_None, PC_SimpleForward>::value
+		PT_SimpleForward = MakePassType<PRT_None, PTB_None, PC_SimpleForward>::value,
+
+		PT_VDM = MakePassType<PRT_None, PTB_None, PC_VDM>::value
 	};
 
 	inline PassRT GetPassRT(PassType pt)
@@ -126,42 +115,8 @@ namespace KlayGE
 		return static_cast<PassType>((rt << 0) | (tb << 4) | (cat << 6));
 	}
 
-
-	typedef std::vector<std::pair<std::string, std::string>> TextureSlotsType;
-	struct KLAYGE_CORE_API RenderMaterial
-	{
-		enum SurfaceDetailMode
-		{
-			SDM_Parallax = 0,
-			SDM_FlatTessellation,
-			SDM_SmoothTessellation
-		};
-
-		RenderMaterial()
-			: detail_mode(SDM_Parallax),
-				height_offset_scale(-0.5f, 0.06f),
-				tess_factors(5, 5, 1, 9)
-		{
-		}
-
-		float3 ambient;
-		float3 diffuse;
-		float3 specular;
-		float3 emit;
-		float opacity;
-		float shininess;
-
-		TextureSlotsType texture_slots;
-
-		SurfaceDetailMode detail_mode;
-		float2 height_offset_scale;
-		float4 tess_factors;
-	};
-
-	float const INV_LOG_8192 = 1 / log(8192.0f);
-
 	// Abstract class defining the interface all renderable objects must implement.
-	class KLAYGE_CORE_API Renderable
+	class KLAYGE_CORE_API Renderable : boost::noncopyable
 	{
 	public:
 		enum EffectAttribute
@@ -172,14 +127,19 @@ namespace KlayGE
 			EA_AlphaTest = 1UL << 3,
 			EA_Reflection = 1UL << 4,
 			EA_SimpleForward = 1UL << 5,
-			EA_SSS = 1UL << 6
+			EA_SSS = 1UL << 6,
+			EA_VDM = 1UL << 7
 		};
 
 	public:
 		Renderable();
 		virtual ~Renderable();
 
-		virtual RenderTechniquePtr const & GetRenderTechnique() const
+		virtual RenderEffectPtr const & GetRenderEffect() const
+		{
+			return effect_;
+		}
+		virtual RenderTechnique* GetRenderTechnique() const
 		{
 			return technique_;
 		}
@@ -203,14 +163,14 @@ namespace KlayGE
 		template <typename Iterator>
 		void AssignInstances(Iterator begin, Iterator end)
 		{
-			instances_.resize(0);
+			this->ClearInstances();
 			for (Iterator iter = begin; iter != end; ++ iter)
 			{
 				this->AddInstance(*iter);
 			}
 		}
 		void AddInstance(SceneObject const * obj);
-
+		void ClearInstances();
 		uint32_t NumInstances() const
 		{
 			return static_cast<uint32_t>(instances_.size());
@@ -242,6 +202,7 @@ namespace KlayGE
 		{
 			return true;
 		}
+		bool AllHWResourceReady() const;
 
 		// For select mode
 
@@ -284,6 +245,10 @@ namespace KlayGE
 		{
 			return effect_attrs_ & EA_SimpleForward ? true : false;
 		}
+		virtual bool VDM() const
+		{
+			return effect_attrs_ & EA_VDM ? true : false;
+		}
 
 	protected:
 		virtual void UpdateInstanceStream();
@@ -291,18 +256,19 @@ namespace KlayGE
 
 		// For deferred only
 		virtual void BindDeferredEffect(RenderEffectPtr const & deferred_effect);
-		virtual RenderTechniquePtr const & PassTech(PassType type) const;
+		virtual RenderTechnique* PassTech(PassType type) const;
 		virtual void UpdateTechniques();
 
 	protected:
 		std::vector<SceneObject const *> instances_;
 
-		RenderTechniquePtr technique_;
+		RenderEffectPtr effect_;
+		RenderTechnique* technique_;
 
 		// For select mode
 
-		RenderTechniquePtr select_mode_tech_;
-		RenderEffectParameterPtr select_mode_object_id_param_;
+		RenderTechnique* select_mode_tech_;
+		RenderEffectParameter* select_mode_object_id_param_;
 		float4 select_mode_object_id_;
 		bool select_mode_on_;
 
@@ -310,72 +276,57 @@ namespace KlayGE
 
 		RenderEffectPtr deferred_effect_;
 
-		RenderTechniquePtr depth_tech_;
-		RenderTechniquePtr depth_alpha_blend_back_tech_;
-		RenderTechniquePtr depth_alpha_blend_front_tech_;
-		RenderTechniquePtr gbuffer_rt0_tech_;
-		RenderTechniquePtr gbuffer_alpha_blend_back_rt0_tech_;
-		RenderTechniquePtr gbuffer_alpha_blend_front_rt0_tech_;
-		RenderTechniquePtr gbuffer_rt1_tech_;
-		RenderTechniquePtr gbuffer_alpha_blend_back_rt1_tech_;
-		RenderTechniquePtr gbuffer_alpha_blend_front_rt1_tech_;
-		RenderTechniquePtr gbuffer_mrt_tech_;
-		RenderTechniquePtr gbuffer_alpha_blend_back_mrt_tech_;
-		RenderTechniquePtr gbuffer_alpha_blend_front_mrt_tech_;
-		RenderTechniquePtr gen_sm_tech_;
-		RenderTechniquePtr gen_sm_wo_dt_tech_;
-		RenderTechniquePtr gen_cascaded_sm_tech_;
-		RenderTechniquePtr gen_rsm_tech_;
-		RenderTechniquePtr reflection_tech_;
-		RenderTechniquePtr reflection_alpha_blend_back_tech_;
-		RenderTechniquePtr reflection_alpha_blend_front_tech_;
-		RenderTechniquePtr special_shading_tech_;
-		RenderTechniquePtr special_shading_alpha_blend_back_tech_;
-		RenderTechniquePtr special_shading_alpha_blend_front_tech_;
-		RenderTechniquePtr simple_forward_tech_;
+		RenderTechnique* gbuffer_mrt_tech_;
+		RenderTechnique* gbuffer_alpha_blend_back_mrt_tech_;
+		RenderTechnique* gbuffer_alpha_blend_front_mrt_tech_;
+		RenderTechnique* gen_sm_tech_;
+		RenderTechnique* gen_cascaded_sm_tech_;
+		RenderTechnique* gen_rsm_tech_;
+		RenderTechnique* reflection_tech_;
+		RenderTechnique* reflection_alpha_blend_back_tech_;
+		RenderTechnique* reflection_alpha_blend_front_tech_;
+		RenderTechnique* special_shading_tech_;
+		RenderTechnique* special_shading_alpha_blend_back_tech_;
+		RenderTechnique* special_shading_alpha_blend_front_tech_;
+		RenderTechnique* simple_forward_tech_;
+		RenderTechnique* vdm_tech_;
 
 		float4x4 model_mat_;
 
 		PassType type_;
-		bool opacity_map_enabled_;
 		uint32_t effect_attrs_;
 
 		RenderMaterialPtr mtl_;
 
-		RenderEffectParameterPtr mvp_param_;
-		RenderEffectParameterPtr model_view_param_;
-		RenderEffectParameterPtr far_plane_param_;
-		RenderEffectParameterPtr forward_vec_param_;
-		RenderEffectParameterPtr frame_size_param_;
-		RenderEffectParameterPtr height_offset_scale_param_;
-		RenderEffectParameterPtr tess_factors_param_;
-		RenderEffectParameterPtr pos_center_param_;
-		RenderEffectParameterPtr pos_extent_param_;
-		RenderEffectParameterPtr tc_center_param_;
-		RenderEffectParameterPtr tc_extent_param_;
-		RenderEffectParameterPtr shininess_tex_param_;
-		RenderEffectParameterPtr shininess_clr_param_;
-		RenderEffectParameterPtr specular_tex_param_;
-		RenderEffectParameterPtr specular_clr_param_;
-		RenderEffectParameterPtr normal_map_enabled_param_;
-		RenderEffectParameterPtr normal_tex_param_;
-		RenderEffectParameterPtr height_map_enabled_param_;
-		RenderEffectParameterPtr height_tex_param_;
-		RenderEffectParameterPtr diffuse_tex_param_;
-		RenderEffectParameterPtr diffuse_clr_param_;
-		RenderEffectParameterPtr emit_tex_param_;
-		RenderEffectParameterPtr emit_clr_param_;
-		RenderEffectParameterPtr opacity_clr_param_;
-		RenderEffectParameterPtr opacity_map_enabled_param_;
-		RenderEffectParameterPtr opaque_depth_tex_param_;
-		RenderEffectParameterPtr reflection_tex_param_;
+		RenderEffectParameter* mvp_param_;
+		RenderEffectParameter* model_view_param_;
+		RenderEffectParameter* forward_vec_param_;
+		RenderEffectParameter* frame_size_param_;
+		RenderEffectParameter* height_offset_scale_param_;
+		RenderEffectParameter* tess_factors_param_;
+		RenderEffectParameter* pos_center_param_;
+		RenderEffectParameter* pos_extent_param_;
+		RenderEffectParameter* tc_center_param_;
+		RenderEffectParameter* tc_extent_param_;
+		RenderEffectParameter* albedo_map_enabled_param_;
+		RenderEffectParameter* albedo_tex_param_;
+		RenderEffectParameter* albedo_clr_param_;
+		RenderEffectParameter* metalness_tex_param_;
+		RenderEffectParameter* metalness_clr_param_;
+		RenderEffectParameter* glossiness_tex_param_;
+		RenderEffectParameter* glossiness_clr_param_;
+		RenderEffectParameter* emissive_tex_param_;
+		RenderEffectParameter* emissive_clr_param_;
+		RenderEffectParameter* normal_map_enabled_param_;
+		RenderEffectParameter* normal_tex_param_;
+		RenderEffectParameter* height_map_parallax_enabled_param_;
+		RenderEffectParameter* height_map_tess_enabled_param_;
+		RenderEffectParameter* height_tex_param_;
+		RenderEffectParameter* opaque_depth_tex_param_;
+		RenderEffectParameter* reflection_tex_param_;
+		RenderEffectParameter* alpha_test_threshold_param_;
 
-		TexturePtr diffuse_tex_;
-		TexturePtr specular_tex_;
-		TexturePtr shininess_tex_;
-		TexturePtr normal_tex_;
-		TexturePtr height_tex_;
-		TexturePtr emit_tex_;
+		std::array<TexturePtr, RenderMaterial::TS_NumTextureSlots> textures_;
 
 		std::vector<RenderablePtr> subrenderables_;
 	};

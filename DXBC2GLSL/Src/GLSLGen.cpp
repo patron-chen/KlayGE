@@ -2079,11 +2079,11 @@ void GLSLGen::ToInstruction(std::ostream& out, ShaderInstruction const & insn) c
 		}
 		else
 		{
-			out << " = ivec4(ivec4(equal(vec4(";
+			out << " = (ivec4(equal(vec4(";
 			this->ToOperands(out, *insn.ops[1], oit);
 			out << "), vec4(";
 			this->ToOperands(out, *insn.ops[2], oit);
-			out << "))) * -1)";
+			out << "))) * ivec4(-1))";
 			this->ToComponentSelectors(out, *insn.ops[0]);
 			out << ";";
 		}
@@ -2106,11 +2106,11 @@ void GLSLGen::ToInstruction(std::ostream& out, ShaderInstruction const & insn) c
 		}
 		else
 		{
-			out << " = ivec4(ivec4(equal(ivec4(";
+			out << " = (ivec4(equal(ivec4(";
 			this->ToOperands(out, *insn.ops[1], oit);
 			out << "), ivec4(";
 			this->ToOperands(out, *insn.ops[2], oit);
-			out << "))) * -1)";
+			out << "))) * ivec4(-1))";
 			this->ToComponentSelectors(out, *insn.ops[0]);
 			out << ";";
 		}		
@@ -2128,11 +2128,11 @@ void GLSLGen::ToInstruction(std::ostream& out, ShaderInstruction const & insn) c
 		}
 		else
 		{
-			out << " = ivec4(ivec4(notEqual(vec4(";
+			out << " = (ivec4(notEqual(vec4(";
 			this->ToOperands(out, *insn.ops[1], oit);
-			out << "), ";
+			out << "), vec4(";
 			this->ToOperands(out, *insn.ops[2], oit);
-			out << "))) * -1)";
+			out << "))) * ivec4(-1))";
 			this->ToComponentSelectors(out, *insn.ops[0]);
 			out << ";";
 		}
@@ -2150,11 +2150,11 @@ void GLSLGen::ToInstruction(std::ostream& out, ShaderInstruction const & insn) c
 		}
 		else
 		{
-			out << " = ivec4(ivec4(notEqual(ivec4(";
+			out << " = (ivec4(notEqual(ivec4(";
 			this->ToOperands(out, *insn.ops[1], oit);
 			out << "), ivec4(";
 			this->ToOperands(out, *insn.ops[2], oit);
-			out << "))) * -1)";
+			out << "))) * ivec4(-1))";
 			this->ToComponentSelectors(out, *insn.ops[0]);
 			out << ";";
 		}
@@ -2172,11 +2172,11 @@ void GLSLGen::ToInstruction(std::ostream& out, ShaderInstruction const & insn) c
 		}
 		else
 		{
-			out << " = ivec4(ivec4(lessThan(vec4(";
+			out << " = (ivec4(lessThan(vec4(";
 			this->ToOperands(out, *insn.ops[1], oit);
 			out << "), vec4(";
 			this->ToOperands(out, *insn.ops[2], oit);
-			out << "))) * -1)";
+			out << "))) * ivec4(-1))";
 			this->ToComponentSelectors(out, *insn.ops[0]);
 			out << ";";
 		}
@@ -2194,11 +2194,11 @@ void GLSLGen::ToInstruction(std::ostream& out, ShaderInstruction const & insn) c
 		}
 		else
 		{
-			out << " = ivec4(ivec4(lessThan(ivec4(";
+			out << " = (ivec4(lessThan(ivec4(";
 			this->ToOperands(out, *insn.ops[1], oit);
 			out << "), ivec4(";
 			this->ToOperands(out, *insn.ops[2], oit);
-			out << "))) * -1)";
+			out << "))) * ivec4(-1))";
 			this->ToComponentSelectors(out, *insn.ops[0]);
 			out << ";";
 		}
@@ -2260,11 +2260,11 @@ void GLSLGen::ToInstruction(std::ostream& out, ShaderInstruction const & insn) c
 		}
 		else
 		{
-			out << " = ivec4(ivec4(greaterThanEqual(vec4(";
+			out << " = (ivec4(greaterThanEqual(vec4(";
 			this->ToOperands(out, *insn.ops[1], oit);
 			out << "), vec4(";
 			this->ToOperands(out, *insn.ops[2], oit);
-			out << "))) * -1)";
+			out << "))) * ivec4(-1))";
 			this->ToComponentSelectors(out, *insn.ops[0]);
 			out << ";";
 		}
@@ -2282,11 +2282,11 @@ void GLSLGen::ToInstruction(std::ostream& out, ShaderInstruction const & insn) c
 		}
 		else
 		{
-			out << " = ivec4(ivec4(greaterThanEqual(ivec4(";
+			out << " = (ivec4(greaterThanEqual(ivec4(";
 			this->ToOperands(out, *insn.ops[1], oit);
 			out << "), ivec4(";
 			this->ToOperands(out, *insn.ops[2], oit);
-			out << "))) * -1)";
+			out << "))) * ivec4(-1))";
 			this->ToComponentSelectors(out, *insn.ops[0]);
 			out << ";";
 		}
@@ -6297,7 +6297,7 @@ void GLSLGen::ToOperandName(std::ostream& out, ShaderOperand const & op, ShaderI
 	else if (SOT_RESOURCE == op.type)
 	{
 		ShaderInputType type = SIT_TEXTURE;
-		if(SIT_UNDEFINED != sit)
+		if (SIT_UNDEFINED != sit)
 		{
 			type = sit;
 		}
@@ -6544,7 +6544,10 @@ void GLSLGen::ToOperandName(std::ostream& out, ShaderOperand const & op, ShaderI
 								{
 									out << "float";
 								}
-								else out << "vec" << count;//glsl only support float or double matrix 
+								else
+								{
+									out << "vec" << count;//glsl only support float or double matrix 
+								}
 								out << "(";
 								for (uint32_t i = 0; i < count; ++ i)
 								{
@@ -6556,26 +6559,65 @@ void GLSLGen::ToOperandName(std::ostream& out, ShaderOperand const & op, ShaderI
 									//x y z w--> 0 1 2 3
 									uint32_t column = this->GetComponentSelector(op, i);
 									out << var.var_desc.name;
-									if (element_count)
+									if (glsl_rules_ & GSR_MatrixType)
 									{
-										out << "[";
-										if (dynamic_indexed && op.indices[1].reg)
+										if (element_count)
 										{
-											this->ToOperands(out, *op.indices[1].reg, SIT_Int);
+											out << "[";
+											if (dynamic_indexed && op.indices[1].reg)
+											{
+												this->ToOperands(out, *op.indices[1].reg, SIT_Int);
+											}
+											else
+											{
+												out << element_index;
+											}
+											// The index is in float4. So for 4x4 matrix, divide by register_stride
+											out << " / " << register_stride;
+											out << "]";
+										}
+										if (SVC_MATRIX_ROWS == var.type_desc.var_class)
+										{
+											out << "[" << column << "]" << "[" << row << "]";
 										}
 										else
 										{
-											out << element_index;
+											out << "[" << row << "]" << "[" << column << "]";
 										}
-										out << "]";
-									}
-									if (SVC_MATRIX_ROWS == var.type_desc.var_class)
-									{
-										out << "[" << column << "]" << "[" << row << "]";
 									}
 									else
 									{
-										out << "[" << row << "]" << "[" << column << "]";
+										out << "[";
+										if (element_count)
+										{
+											if (dynamic_indexed && op.indices[1].reg)
+											{
+												this->ToOperands(out, *op.indices[1].reg, SIT_Int);
+											}
+											else
+											{
+												out << element_index;
+											}
+											out << " + ";
+										}
+										if (SVC_MATRIX_ROWS == var.type_desc.var_class)
+										{
+											out << column;
+										}
+										else
+										{
+											out << row;
+										}
+										out << "][";
+										if (SVC_MATRIX_ROWS == var.type_desc.var_class)
+										{
+											out << row;
+										}
+										else
+										{
+											out << column;
+										}
+										out << "]";
 									}
 								}
 								out << ")";
@@ -7831,6 +7873,7 @@ void GLSLGen::ToCopyToInterShaderPatchConstantRecords(std::ostream& out)const
 				{
 					out << "gl_TessLevelOuter[" << sig_desc.semantic_index << ']';
 				}
+				need_comps = false;
 				break;
 
 			case SN_UNDEFINED:

@@ -225,10 +225,9 @@ namespace KlayGE
 		}
 	}
 
-	D3D12ShaderResourceViewSimulationPtr const & D3D12Texture2D::RetriveD3DShaderResourceView(uint32_t first_array_index, uint32_t num_items, uint32_t first_level, uint32_t num_levels)
+	D3D12_SHADER_RESOURCE_VIEW_DESC D3D12Texture2D::FillSRVDesc(uint32_t first_array_index, uint32_t num_items, uint32_t first_level,
+		uint32_t num_levels) const
 	{
-		BOOST_ASSERT(this->AccessHint() & EAH_GPU_Read);
-
 		D3D12_SHADER_RESOURCE_VIEW_DESC desc;
 		switch (format_)
 		{
@@ -283,13 +282,11 @@ namespace KlayGE
 			desc.Texture2D.ResourceMinLODClamp = 0;
 		}
 
-		return this->RetriveD3DSRV(desc);
+		return desc;
 	}
 
-	D3D12UnorderedAccessViewSimulationPtr const & D3D12Texture2D::RetriveD3DUnorderedAccessView(uint32_t first_array_index, uint32_t num_items, uint32_t level)
+	D3D12_UNORDERED_ACCESS_VIEW_DESC D3D12Texture2D::FillUAVDesc(uint32_t first_array_index, uint32_t num_items, uint32_t level) const
 	{
-		BOOST_ASSERT(this->AccessHint() & EAH_GPU_Unordered);
-
 		D3D12_UNORDERED_ACCESS_VIEW_DESC desc;
 		desc.Format = dxgi_fmt_;
 		if (array_size_ > 1)
@@ -307,15 +304,11 @@ namespace KlayGE
 			desc.Texture2D.PlaneSlice = 0;
 		}
 
-		return this->RetriveD3DUAV(desc);
+		return desc;
 	}
 
-	D3D12RenderTargetViewSimulationPtr const & D3D12Texture2D::RetriveD3DRenderTargetView(uint32_t first_array_index, uint32_t array_size, uint32_t level)
+	D3D12_RENDER_TARGET_VIEW_DESC D3D12Texture2D::FillRTVDesc(uint32_t first_array_index, uint32_t array_size, uint32_t level) const
 	{
-		BOOST_ASSERT(this->AccessHint() & EAH_GPU_Write);
-		BOOST_ASSERT(first_array_index < this->ArraySize());
-		BOOST_ASSERT(first_array_index + array_size <= this->ArraySize());
-
 		D3D12_RENDER_TARGET_VIEW_DESC desc;
 		desc.Format = D3D12Mapping::MappingFormat(this->Format());
 		if (sample_count_ > 1)
@@ -333,15 +326,11 @@ namespace KlayGE
 			desc.Texture2DArray.PlaneSlice = 0;
 		}
 
-		return this->RetriveD3DRTV(desc);
+		return desc;
 	}
 
-	D3D12DepthStencilViewSimulationPtr const & D3D12Texture2D::RetriveD3DDepthStencilView(uint32_t first_array_index, uint32_t array_size, uint32_t level)
+	D3D12_DEPTH_STENCIL_VIEW_DESC D3D12Texture2D::FillDSVDesc(uint32_t first_array_index, uint32_t array_size, uint32_t level) const
 	{
-		BOOST_ASSERT(this->AccessHint() & EAH_GPU_Write);
-		BOOST_ASSERT(first_array_index < this->ArraySize());
-		BOOST_ASSERT(first_array_index + array_size <= this->ArraySize());
-
 		D3D12_DEPTH_STENCIL_VIEW_DESC desc;
 		desc.Format = D3D12Mapping::MappingFormat(this->Format());
 		desc.Flags = D3D12_DSV_FLAG_NONE;
@@ -359,7 +348,7 @@ namespace KlayGE
 			desc.Texture2DArray.ArraySize = array_size;
 		}
 
-		return this->RetriveD3DDSV(desc);
+		return desc;
 	}
 
 	void D3D12Texture2D::Map2D(uint32_t array_index, uint32_t level, TextureMapAccess tma,
@@ -385,9 +374,9 @@ namespace KlayGE
 		// Compression formats
 		if (IsDepthFormat(format_) || IsCompressedFormat(format_))
 		{
-			for (uint32_t index = 0; index < this->ArraySize(); ++index)
+			for (uint32_t index = 0; index < this->ArraySize(); ++ index)
 			{
-				for (uint32_t level = 1; level < this->NumMipMaps(); ++level)
+				for (uint32_t level = 1; level < this->NumMipMaps(); ++ level)
 				{
 					this->ResizeTexture2D(*this, index, level, 0, 0, this->Width(level), this->Height(level),
 						index, level - 1, 0, 0, this->Width(level - 1), this->Height(level - 1), true);
@@ -400,10 +389,11 @@ namespace KlayGE
 			ID3D12DevicePtr const & device = re.D3DDevice();
 			ID3D12GraphicsCommandListPtr const & cmd_list = re.D3DRenderCmdList();
 
-			RenderTechniquePtr tech = re.BilinearBlitTech();
-			RenderPassPtr pass = tech->Pass(0);
-			pass->Bind();
-			D3D12ShaderObjectPtr so = checked_pointer_cast<D3D12ShaderObject>(pass->GetShaderObject());
+			auto const & effect = *re.BlitEffect();
+			auto const & tech = *re.BilinearBlitTech();
+			auto& pass = tech.Pass(0);
+			pass.Bind(effect);
+			D3D12ShaderObjectPtr so = checked_pointer_cast<D3D12ShaderObject>(pass.GetShaderObject(effect));
 
 			D3D12RenderLayout& rl = *checked_pointer_cast<D3D12RenderLayout>(re.PostProcessRenderLayout());
 
@@ -454,10 +444,10 @@ namespace KlayGE
 			pso_desc.StreamOutput.NumStrides = 0;
 			pso_desc.StreamOutput.RasterizedStream = 0;
 
-			pso_desc.BlendState = checked_pointer_cast<D3D12BlendStateObject>(pass->GetBlendStateObject())->D3DDesc();
+			pso_desc.BlendState = checked_pointer_cast<D3D12RenderStateObject>(pass.GetRenderStateObject())->D3DBlendDesc();
 			pso_desc.SampleMask = 0xFFFFFFFF;
-			pso_desc.RasterizerState = checked_pointer_cast<D3D12RasterizerStateObject>(pass->GetRasterizerStateObject())->D3DDesc();
-			pso_desc.DepthStencilState = checked_pointer_cast<D3D12DepthStencilStateObject>(pass->GetDepthStencilStateObject())->D3DDesc();
+			pso_desc.RasterizerState = checked_pointer_cast<D3D12RenderStateObject>(pass.GetRenderStateObject())->D3DRasterizerDesc();
+			pso_desc.DepthStencilState = checked_pointer_cast<D3D12RenderStateObject>(pass.GetRenderStateObject())->D3DDepthStencilDesc();
 			pso_desc.InputLayout.pInputElementDescs = &rl.InputElementDesc()[0];
 			pso_desc.InputLayout.NumElements = static_cast<UINT>(rl.InputElementDesc().size());
 			pso_desc.IBStripCutValue = (EF_R16UI == rl.IndexStreamFormat())
@@ -581,7 +571,7 @@ namespace KlayGE
 				}
 			}
 
-			pass->Unbind();
+			pass.Unbind(effect);
 		}
 	}
 

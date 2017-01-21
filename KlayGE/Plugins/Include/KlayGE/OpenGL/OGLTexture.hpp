@@ -66,17 +66,26 @@ namespace KlayGE
 			return target_type_;
 		}
 
-		GLuint GLPbo(uint32_t level) const
-		{
-			return pbos_[level];
-		}
-
 		void TexParameteri(GLenum pname, GLint param);
 		void TexParameterf(GLenum pname, GLfloat param);
 		void TexParameterfv(GLenum pname, GLfloat const * param);
 
 		virtual void DeleteHWResource() override;
 		virtual bool HWResourceReady() const override;
+
+		void UpdateSubresource1D(uint32_t array_index, uint32_t level,
+			uint32_t x_offset, uint32_t width,
+			void const * data) override;
+		void UpdateSubresource2D(uint32_t array_index, uint32_t level,
+			uint32_t x_offset, uint32_t y_offset, uint32_t width, uint32_t height,
+			void const * data, uint32_t row_pitch) override;
+		void UpdateSubresource3D(uint32_t array_index, uint32_t level,
+			uint32_t x_offset, uint32_t y_offset, uint32_t z_offset,
+			uint32_t width, uint32_t height, uint32_t depth,
+			void const * data, uint32_t row_pitch, uint32_t slice_pitch) override;
+		void UpdateSubresourceCube(uint32_t array_index, CubeFaces face, uint32_t level,
+			uint32_t x_offset, uint32_t y_offset, uint32_t width, uint32_t height,
+			void const * data, uint32_t row_pitch) override;
 
 	private:
 		virtual void Map1D(uint32_t array_index, uint32_t level, TextureMapAccess tma,
@@ -104,7 +113,8 @@ namespace KlayGE
 	protected:
 		GLuint texture_;
 		GLenum target_type_;
-		std::vector<GLuint> pbos_;
+		GLuint pbo_;
+		std::vector<uint32_t> mipmap_start_offset_;
 		TextureMapAccess last_tma_;
 
 		std::map<GLenum, GLint> tex_param_i_;
@@ -131,6 +141,10 @@ namespace KlayGE
 			uint32_t src_array_index, uint32_t src_level, uint32_t src_x_offset, uint32_t src_width);
 
 		virtual void CreateHWResource(ElementInitData const * init_data) override;
+
+		void UpdateSubresource1D(uint32_t array_index, uint32_t level,
+			uint32_t x_offset, uint32_t width,
+			void const * data) override;
 
 	private:
 		virtual void Map1D(uint32_t array_index, uint32_t level, TextureMapAccess tma,
@@ -160,6 +174,10 @@ namespace KlayGE
 
 		virtual void CreateHWResource(ElementInitData const * init_data) override;
 
+		void UpdateSubresource2D(uint32_t array_index, uint32_t level,
+			uint32_t x_offset, uint32_t y_offset, uint32_t width, uint32_t height,
+			void const * data, uint32_t row_pitch) override;
+
 	private:
 		virtual void Map2D(uint32_t array_index, uint32_t level, TextureMapAccess tma,
 			uint32_t x_offset, uint32_t y_offset, uint32_t width, uint32_t height,
@@ -188,6 +206,11 @@ namespace KlayGE
 
 		virtual void CreateHWResource(ElementInitData const * init_data) override;
 
+		void UpdateSubresource3D(uint32_t array_index, uint32_t level,
+			uint32_t x_offset, uint32_t y_offset, uint32_t z_offset,
+			uint32_t width, uint32_t height, uint32_t depth,
+			void const * data, uint32_t row_pitch, uint32_t slice_pitch) override;
+
 	private:
 		virtual void Map3D(uint32_t array_index, uint32_t level, TextureMapAccess tma,
 			uint32_t x_offset, uint32_t y_offset, uint32_t z_offset,
@@ -211,11 +234,20 @@ namespace KlayGE
 		uint32_t Height(uint32_t level) const;
 
 		void CopyToTexture(Texture& target);
+		void CopyToSubTexture2D(Texture& target,
+			uint32_t dst_array_index, uint32_t dst_level,
+			uint32_t dst_x_offset, uint32_t dst_y_offset, uint32_t dst_width, uint32_t dst_height,
+			uint32_t src_array_index, uint32_t src_level,
+			uint32_t src_x_offset, uint32_t src_y_offset, uint32_t src_width, uint32_t src_height) override;
 		void CopyToSubTextureCube(Texture& target,
 			uint32_t dst_array_index, CubeFaces dst_face, uint32_t dst_level, uint32_t dst_x_offset, uint32_t dst_y_offset, uint32_t dst_width, uint32_t dst_height,
 			uint32_t src_array_index, CubeFaces src_face, uint32_t src_level, uint32_t src_x_offset, uint32_t src_y_offset, uint32_t src_width, uint32_t src_height);
 
 		virtual void CreateHWResource(ElementInitData const * init_data) override;
+
+		void UpdateSubresourceCube(uint32_t array_index, CubeFaces face, uint32_t level,
+			uint32_t x_offset, uint32_t y_offset, uint32_t width, uint32_t height,
+			void const * data, uint32_t row_pitch) override;
 
 	private:
 		virtual void MapCube(uint32_t array_index, CubeFaces face, uint32_t level, TextureMapAccess tma,

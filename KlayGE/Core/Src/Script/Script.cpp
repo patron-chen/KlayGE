@@ -46,19 +46,19 @@ namespace KlayGE
 	{
 	}
 
-	std::experimental::any ScriptModule::Value(std::string const & /*name*/)
+	std::any ScriptModule::Value(std::string const & /*name*/)
 	{
-		return std::experimental::any();
+		return std::any();
 	}
 
-	std::experimental::any ScriptModule::Call(std::string const & /*func_name*/, const AnyDataListType& /*args*/)
+	std::any ScriptModule::Call(std::string const & /*func_name*/, const AnyDataListType& /*args*/)
 	{
-		return std::experimental::any();
+		return std::any();
 	}
 
-	std::experimental::any ScriptModule::RunString(std::string const & /*script*/)
+	std::any ScriptModule::RunString(std::string const & /*script*/)
 	{
-		return std::experimental::any();
+		return std::any();
 	}
 
 	// ¹¹Ôìº¯Êý

@@ -4,6 +4,7 @@
 #include <KlayGE/GraphicsBuffer.hpp>
 #include <KFL/Math.hpp>
 #include <KlayGE/Font.hpp>
+#include <KlayGE/RenderMaterial.hpp>
 #include <KlayGE/Renderable.hpp>
 #include <KlayGE/RenderableHelper.hpp>
 #include <KlayGE/RenderEngine.hpp>
@@ -199,16 +200,17 @@ namespace
 		{
 			StaticMesh::DoBuildMeshInfo();
 
-			*(effect_->ParameterByName("diffuse_tex")) = diffuse_tex_;
-			*(effect_->ParameterByName("specular_tex")) = specular_tex_;
-			*(effect_->ParameterByName("shininess_tex")) = shininess_tex_;
-			*(effect_->ParameterByName("emit_tex")) = emit_tex_;
+			*(effect_->ParameterByName("albedo_tex")) = textures_[RenderMaterial::TS_Albedo];
+			*(effect_->ParameterByName("metalness_tex")) = textures_[RenderMaterial::TS_Metalness];
+			*(effect_->ParameterByName("glossiness_tex")) = textures_[RenderMaterial::TS_Glossiness];
+			*(effect_->ParameterByName("emissive_tex")) = textures_[RenderMaterial::TS_Emissive];
 
-			*(effect_->ParameterByName("ambient_clr")) = float4(mtl_->ambient.x(), mtl_->ambient.y(), mtl_->ambient.z(), 1);
-			*(effect_->ParameterByName("diffuse_clr")) = float4(mtl_->diffuse.x(), mtl_->diffuse.y(), mtl_->diffuse.z(), !!diffuse_tex_);
-			*(effect_->ParameterByName("specular_clr")) = float4(mtl_->specular.x(), mtl_->specular.y(), mtl_->specular.z(), !!specular_tex_);
-			*(effect_->ParameterByName("shininess_clr")) = float2(MathLib::clamp(mtl_->shininess, 1e-6f, 0.999f), !!shininess_tex_);
-			*(effect_->ParameterByName("emit_clr")) = float4(mtl_->emit.x(), mtl_->emit.y(), mtl_->emit.z(), !!emit_tex_);
+			*(effect_->ParameterByName("albedo_clr")) = mtl_->albedo;
+			*(effect_->ParameterByName("metalness_clr")) = float2(mtl_->metalness, !!textures_[RenderMaterial::TS_Metalness]);
+			*(effect_->ParameterByName("glossiness_clr")) = float2(mtl_->glossiness, !!textures_[RenderMaterial::TS_Glossiness]);
+			*(effect_->ParameterByName("emissive_clr")) = float4(mtl_->emissive.x(), mtl_->emissive.y(), mtl_->emissive.z(),
+				!!textures_[RenderMaterial::TS_Emissive]);
+			*(effect_->ParameterByName("albedo_map_enabled")) = static_cast<int32_t>(!!textures_[RenderMaterial::TS_Albedo]);
 
 			AABBox const & pos_bb = this->PosBound();
 			*(effect_->ParameterByName("pos_center")) = pos_bb.Center();
@@ -313,8 +315,6 @@ namespace
 		}
 
 	private:	
-		RenderEffectPtr effect_;
-
 		bool smooth_mesh_;
 		float tess_factor_;
 	};
@@ -369,16 +369,11 @@ ShadowCubeMap::ShadowCubeMap()
 	ResLoader::Instance().AddPath("../../Samples/media/ShadowCubeMap");
 }
 
-bool ShadowCubeMap::ConfirmDevice() const
-{
-	return true;
-}
-
 void ShadowCubeMap::OnCreate()
 {
 	loading_percentage_ = 0;
 	lamp_tex_ = ASyncLoadTexture("lamp.dds", EAH_GPU_Read | EAH_Immutable);
-	scene_model_ = ASyncLoadModel("ScifiRoom.7z//ScifiRoom.meshml", EAH_GPU_Read | EAH_Immutable, CreateModelFactory<RenderModel>(), CreateMeshFactory<OccluderMesh>());
+	scene_model_ = ASyncLoadModel("ScifiRoom.meshml", EAH_GPU_Read | EAH_Immutable, CreateModelFactory<RenderModel>(), CreateMeshFactory<OccluderMesh>());
 	teapot_model_ = ASyncLoadModel("teapot.meshml", EAH_GPU_Read | EAH_Immutable, CreateModelFactory<RenderModel>(), CreateMeshFactory<OccluderMesh>());
 
 	RenderFactory& rf = Context::Instance().RenderFactoryInstance();

@@ -4,42 +4,17 @@
 #include <KlayGE/Texture.hpp>
 #include <KlayGE/TexCompressionBC.hpp>
 #include <KlayGE/ResLoader.hpp>
+#include <KFL/CXX17/filesystem.hpp>
 
 #include <iostream>
 #include <fstream>
 #include <vector>
 #include <cstring>
-#if defined(KLAYGE_TS_LIBRARY_FILESYSTEM_V3_SUPPORT)
-	#include <experimental/filesystem>
-#elif defined(KLAYGE_TS_LIBRARY_FILESYSTEM_V2_SUPPORT)
-	#include <filesystem>
-	namespace std
-	{
-		namespace experimental
-		{
-			namespace filesystem = std::tr2::sys;
-		}
-	}
-#else
-	#if defined(KLAYGE_COMPILER_GCC)
-		#pragma GCC diagnostic push
-		#pragma GCC diagnostic ignored "-Wdeprecated-declarations" // Ignore auto_ptr declaration
-	#endif
-	#include <boost/filesystem.hpp>
-	#if defined(KLAYGE_COMPILER_GCC)
-		#pragma GCC diagnostic pop
-	#endif
-	namespace std
-	{
-		namespace experimental
-		{
-			namespace filesystem = boost::filesystem;
-		}
-	}
-#endif
+
 #include <boost/assert.hpp>
 
 using namespace std;
+
 namespace
 {
 	using namespace KlayGE;
@@ -213,15 +188,15 @@ namespace
 		uint32_t c_width = std::max(width / 2, 1U);
 		uint32_t c_height = std::max(height / 2, 1U);
 
-		TexCompressionPtr tex_codec;
+		std::unique_ptr<TexCompression> tex_codec;
 		switch (c_format)
 		{
 		case EF_BC3:
-			tex_codec = MakeSharedPtr<TexCompressionBC3>();
+			tex_codec = MakeUniquePtr<TexCompressionBC3>();
 			break;
 
 		case EF_BC5:
-			tex_codec = MakeSharedPtr<TexCompressionBC5>();
+			tex_codec = MakeUniquePtr<TexCompressionBC5>();
 			break;
 
 		default:
@@ -449,7 +424,6 @@ namespace
 int main(int argc, char* argv[])
 {
 	using namespace KlayGE;
-	using namespace std::experimental;
 
 	if (argc < 2)
 	{
@@ -478,13 +452,8 @@ int main(int argc, char* argv[])
 	}
 
 	filesystem::path output_path(argv[1]);
-#ifdef KLAYGE_TS_LIBRARY_FILESYSTEM_V2_SUPPORT
-	std::string y_file = output_path.stem() + "_y" + output_path.extension();
-	std::string c_file = output_path.stem() + "_c" + output_path.extension();
-#else
 	std::string y_file = output_path.stem().string() + "_y" + output_path.extension().string();
 	std::string c_file = output_path.stem().string() + "_c" + output_path.extension().string();
-#endif
 
 	CompressHDR(argv[1], y_file, c_file, y_format, c_format);
 

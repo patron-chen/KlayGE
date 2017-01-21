@@ -24,7 +24,7 @@
 #include <KFL/Thread.hpp>
 #include <KlayGE/Socket.hpp>
 
-#ifndef KLAYGE_PLATFORM_WINDOWS_RUNTIME
+#ifndef KLAYGE_PLATFORM_WINDOWS_STORE
 
 namespace KlayGE
 {
@@ -36,7 +36,7 @@ namespace KlayGE
 		sockaddr_in		addr;
 	};
 
-	class KLAYGE_CORE_API Player
+	class KLAYGE_CORE_API Player : boost::noncopyable
 	{
 	public:
 		Player();

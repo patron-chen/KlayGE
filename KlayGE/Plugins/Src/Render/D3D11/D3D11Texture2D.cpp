@@ -49,33 +49,6 @@ namespace KlayGE
 		}
 		num_mip_maps_ = numMipMaps;
 
-		D3D11RenderEngine const & re = *checked_cast<D3D11RenderEngine const *>(&Context::Instance().RenderFactoryInstance().RenderEngineInstance());
-		if (re.DeviceFeatureLevel() <= D3D_FEATURE_LEVEL_9_3)
-		{
-			if (!re.DeviceCaps().full_npot_texture_support
-				&& (num_mip_maps_ > 1) && (((width & (width - 1)) != 0) || ((height & (height - 1)) != 0)))
-			{
-				// height or width is not a power of 2 and multiple mip levels are specified. This is not supported at feature levels below 10.0.
-				num_mip_maps_ = 1;
-			}
-
-			if ((num_mip_maps_ > 1) && IsCompressedFormat(format))
-			{
-				// height or width is not a multiply of 4 and multiple mip levels are specified. This is not supported at feature levels below 10.0.
-				uint32_t clamped_num_mip_maps;
-				for (clamped_num_mip_maps = 0; clamped_num_mip_maps < num_mip_maps_; ++ clamped_num_mip_maps)
-				{
-					uint32_t w = std::max<uint32_t>(1U, width >> clamped_num_mip_maps);
-					uint32_t h = std::max<uint32_t>(1U, height >> clamped_num_mip_maps);
-					if (((w & 0x3) != 0) || ((h & 0x3) != 0))
-					{
-						break;
-					}
-				}
-				num_mip_maps_ = clamped_num_mip_maps;
-			}
-		}
-
 		array_size_ = array_size;
 		format_		= format;
 		dxgi_fmt_ = D3D11Mapping::MappingFormat(format_);
@@ -256,11 +229,9 @@ namespace KlayGE
 		}
 	}
 
-	ID3D11ShaderResourceViewPtr const & D3D11Texture2D::RetriveD3DShaderResourceView(uint32_t first_array_index, uint32_t num_items,
-			uint32_t first_level, uint32_t num_levels)
+	D3D11_SHADER_RESOURCE_VIEW_DESC D3D11Texture2D::FillSRVDesc(uint32_t first_array_index, uint32_t num_items,
+			uint32_t first_level, uint32_t num_levels) const
 	{
-		BOOST_ASSERT(this->AccessHint() & EAH_GPU_Read);
-
 		D3D11_SHADER_RESOURCE_VIEW_DESC desc;
 		switch (format_)
 		{
@@ -310,14 +281,11 @@ namespace KlayGE
 			desc.Texture2D.MipLevels = num_levels;
 		}
 
-		return this->RetriveD3DSRV(desc);
+		return desc;
 	}
 
-	ID3D11UnorderedAccessViewPtr const & D3D11Texture2D::RetriveD3DUnorderedAccessView(uint32_t first_array_index, uint32_t num_items,
-			uint32_t level)
+	D3D11_UNORDERED_ACCESS_VIEW_DESC D3D11Texture2D::FillUAVDesc(uint32_t first_array_index, uint32_t num_items, uint32_t level) const
 	{
-		BOOST_ASSERT(this->AccessHint() & EAH_GPU_Unordered);
-
 		D3D11_UNORDERED_ACCESS_VIEW_DESC desc;
 		desc.Format = dxgi_fmt_;
 		if (array_size_ > 1)
@@ -333,15 +301,11 @@ namespace KlayGE
 			desc.Texture2D.MipSlice = level;
 		}
 
-		return this->RetriveD3DUAV(desc);
+		return desc;
 	}
 
-	ID3D11RenderTargetViewPtr const & D3D11Texture2D::RetriveD3DRenderTargetView(uint32_t first_array_index, uint32_t array_size, uint32_t level)
+	D3D11_RENDER_TARGET_VIEW_DESC D3D11Texture2D::FillRTVDesc(uint32_t first_array_index, uint32_t array_size, uint32_t level) const
 	{
-		BOOST_ASSERT(this->AccessHint() & EAH_GPU_Write);
-		BOOST_ASSERT(first_array_index < this->ArraySize());
-		BOOST_ASSERT(first_array_index + array_size <= this->ArraySize());
-
 		D3D11_RENDER_TARGET_VIEW_DESC desc;
 		desc.Format = D3D11Mapping::MappingFormat(this->Format());
 		if (this->SampleCount() > 1)
@@ -377,15 +341,11 @@ namespace KlayGE
 			desc.Texture2D.MipSlice = level;
 		}
 
-		return this->RetriveD3DRTV(desc);
+		return desc;
 	}
 
-	ID3D11DepthStencilViewPtr const & D3D11Texture2D::RetriveD3DDepthStencilView(uint32_t first_array_index, uint32_t array_size, uint32_t level)
+	D3D11_DEPTH_STENCIL_VIEW_DESC D3D11Texture2D::FillDSVDesc(uint32_t first_array_index, uint32_t array_size, uint32_t level) const
 	{
-		BOOST_ASSERT(this->AccessHint() & EAH_GPU_Write);
-		BOOST_ASSERT(first_array_index < this->ArraySize());
-		BOOST_ASSERT(first_array_index + array_size <= this->ArraySize());
-
 		D3D11_DEPTH_STENCIL_VIEW_DESC desc;
 		desc.Format = D3D11Mapping::MappingFormat(this->Format());
 		desc.Flags = 0;
@@ -422,7 +382,7 @@ namespace KlayGE
 			desc.Texture2D.MipSlice = level;
 		}
 
-		return this->RetriveD3DDSV(desc);
+		return desc;
 	}
 
 	void D3D11Texture2D::Map2D(uint32_t array_index, uint32_t level, TextureMapAccess tma,

@@ -34,20 +34,7 @@
 #ifdef KLAYGE_COMPILER_MSVC
 #pragma warning(pop)
 #endif
-#ifdef KLAYGE_TS_LIBRARY_ANY_SUPPORT
-	#include <experimental/any>
-#else
-	#include <boost/any.hpp>
-	namespace std
-	{
-		namespace experimental
-		{
-			using boost::any;
-			using boost::any_cast;
-			using boost::bad_any_cast;
-		}
-	}
-#endif
+#include <KFL/CXX17/any.hpp>
 
 namespace KlayGE
 {
@@ -153,7 +140,7 @@ namespace KlayGE
 		UIStatesColor font_color_;
 	};
 
-	class KLAYGE_CORE_API UIControl : public std::enable_shared_from_this<UIControl>
+	class KLAYGE_CORE_API UIControl : public std::enable_shared_from_this<UIControl>, boost::noncopyable
 	{
 	public:
 		UIControl(uint32_t type, UIDialogPtr const & dialog)
@@ -276,26 +263,26 @@ namespace KlayGE
 
 		virtual void SetTextColor(Color const & color)
 		{
-			UIElementPtr const & element = elements_[0];
+			UIElement* element = elements_[0].get();
 			if (element)
 			{
 				element->FontColor().States[UICS_Normal] = color;
 			}
 		}
-		UIElementPtr const & GetElement(uint32_t iElement) const
+		UIElement* GetElement(uint32_t iElement) const
 		{
-			return elements_[iElement];
+			return elements_[iElement].get();
 		}
-		void SetElement(uint32_t iElement, UIElementPtr element)
+		void SetElement(uint32_t iElement, UIElement const & element)
 		{
 			// Make certain the array is this large
 			for (uint32_t i = static_cast<uint32_t>(elements_.size()); i <= iElement; ++ i)
 			{
-				elements_.push_back(MakeSharedPtr<UIElement>());
+				elements_.push_back(MakeUniquePtr<UIElement>());
 			}
 
 			// Update the data
-			*elements_[iElement] = *element;
+			*elements_[iElement] = element;
 		}
 
 		bool GetIsDefault() const
@@ -352,7 +339,7 @@ namespace KlayGE
 		std::weak_ptr<UIDialog> dialog_;    // Parent container
 		uint32_t index_;              // Index within the control list
 
-		std::vector<UIElementPtr> elements_;  // All display elements
+		std::vector<std::unique_ptr<UIElement>> elements_;  // All display elements
 
 	protected:
 		virtual void UpdateRects()
@@ -369,7 +356,7 @@ namespace KlayGE
 		IRect bounding_box_;		// Rectangle defining the active region of the control
 	};
 
-	class KLAYGE_CORE_API UIManager : public std::enable_shared_from_this<UIManager>
+	class KLAYGE_CORE_API UIManager : boost::noncopyable, public std::enable_shared_from_this<UIManager>
 	{
 	public:
 		struct VertexFormat
@@ -478,7 +465,7 @@ namespace KlayGE
 		bool inited_;
 	};
 
-	class KLAYGE_CORE_API UIDialog
+	class KLAYGE_CORE_API UIDialog : boost::noncopyable
 	{
 		friend class UIManager;
 
@@ -1174,7 +1161,7 @@ namespace KlayGE
 	struct KLAYGE_CORE_API UIListBoxItem
 	{
 		std::wstring strText;
-		std::experimental::any data;
+		std::any data;
 
 		IRect  rcActive;
 		bool  bSelected;
@@ -1240,9 +1227,9 @@ namespace KlayGE
 			margin_ = margin;
 		}
 		int AddItem(std::wstring const & strText);
-		void SetItemData(int nIndex, std::experimental::any const & data);
-		int AddItem(std::wstring const & strText, std::experimental::any const & data);
-		void InsertItem(int nIndex, std::wstring const & strText, std::experimental::any const & data);
+		void SetItemData(int nIndex, std::any const & data);
+		int AddItem(std::wstring const & strText, std::any const & data);
+		void InsertItem(int nIndex, std::wstring const & strText, std::any const & data);
 		void RemoveItem(int nIndex);
 		void RemoveAllItems();
 
@@ -1297,7 +1284,7 @@ namespace KlayGE
 	struct UIComboBoxItem
 	{
 		std::wstring strText;
-		std::experimental::any data;
+		std::any data;
 
 		IRect  rcActive;
 		bool  bVisible;
@@ -1330,14 +1317,14 @@ namespace KlayGE
 		virtual void UpdateRects();
 
 		int AddItem(std::wstring const & strText);
-		void SetItemData(int nIndex, std::experimental::any const & data);
-		int AddItem(std::wstring const & strText, std::experimental::any const & data);
+		void SetItemData(int nIndex, std::any const & data);
+		int AddItem(std::wstring const & strText, std::any const & data);
 		void RemoveAllItems();
 		void RemoveItem(uint32_t index);
 		bool ContainsItem(std::wstring const & strText, uint32_t iStart = 0) const;
 		int FindItem(std::wstring const & strText, uint32_t iStart = 0) const;
-		std::experimental::any const GetItemData(std::wstring const & strText) const;
-		std::experimental::any const GetItemData(int nIndex) const;
+		std::any const GetItemData(std::wstring const & strText) const;
+		std::any const GetItemData(int nIndex) const;
 		void SetDropHeight(uint32_t nHeight)
 		{
 			drop_height_ = nHeight;
@@ -1353,7 +1340,7 @@ namespace KlayGE
 			this->UpdateRects();
 		}
 
-		std::experimental::any const GetSelectedData() const;
+		std::any const GetSelectedData() const;
 		std::shared_ptr<UIComboBoxItem> GetSelectedItem() const;
 		int GetSelectedIndex() const;
 
@@ -1376,7 +1363,7 @@ namespace KlayGE
 			{
 				std::shared_ptr<UIComboBoxItem> pItem = items_[i];
 
-				if (std::experimental::any_cast<T>(pItem->data) == data)
+				if (std::any_cast<T>(pItem->data) == data)
 				{
 					this->SetSelectedByIndex(static_cast<uint32_t>(i));
 				}
@@ -1423,7 +1410,7 @@ namespace KlayGE
 	};
 
 	// UniBuffer class for the edit control
-	class KLAYGE_CORE_API UniBuffer
+	class KLAYGE_CORE_API UniBuffer : boost::noncopyable
 	{
 	public:
 		explicit UniBuffer(int nInitialSize = 1);

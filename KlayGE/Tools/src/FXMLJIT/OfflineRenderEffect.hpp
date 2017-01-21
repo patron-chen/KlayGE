@@ -650,9 +650,9 @@ namespace KlayGE
 			std::string const & HLSLShaderText() const;
 
 		private:
-			void RecursiveIncludeNode(XMLNodePtr const & root, std::vector<std::string>& include_names) const;
-			void InsertIncludeNodes(XMLDocument& target_doc, XMLNodePtr const & target_root,
-				XMLNodePtr const & target_place, XMLNodePtr const & include_root) const;
+			void RecursiveIncludeNode(XMLNode const & root, std::vector<std::string>& include_names) const;
+			void InsertIncludeNodes(XMLDocument& target_doc, XMLNode& target_root,
+				XMLNodePtr const & target_place, XMLNode const & include_root) const;
 
 		private:
 			std::shared_ptr<std::string> res_name_;
@@ -762,9 +762,7 @@ namespace KlayGE
 		{
 		public:
 			explicit RenderPass(RenderEffect& effect)
-				: effect_(effect),
-				front_stencil_ref_(0), back_stencil_ref_(0),
-				blend_factor_(1, 1, 1, 1), sample_mask_(0xFFFFFFFF)
+				: effect_(effect)
 			{
 			}
 
@@ -826,10 +824,7 @@ namespace KlayGE
 
 			RasterizerStateDesc rasterizer_state_desc_;
 			DepthStencilStateDesc depth_stencil_state_desc_;
-			uint16_t front_stencil_ref_, back_stencil_ref_;
 			BlendStateDesc blend_state_desc_;
-			Color blend_factor_;
-			uint32_t sample_mask_;
 			ShaderObjectPtr shader_obj_;
 
 			bool is_validate_;

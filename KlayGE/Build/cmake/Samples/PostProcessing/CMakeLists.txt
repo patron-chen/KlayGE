@@ -18,6 +18,7 @@ SET(HEADER_FILES
 
 SET(EFFECT_FILES
 	${KLAYGE_PROJECT_DIR}/Samples/media/PostProcessing/AsciiArtsPP.fxml
+	${KLAYGE_PROJECT_DIR}/Samples/media/PostProcessing/BlackHolePP.fxml
 	${KLAYGE_PROJECT_DIR}/Samples/media/PostProcessing/CartoonPP.fxml
 	${KLAYGE_PROJECT_DIR}/Samples/media/PostProcessing/CrossStitching.fxml
 	${KLAYGE_PROJECT_DIR}/Samples/media/PostProcessing/FrostedGlass.fxml
@@ -27,6 +28,7 @@ SET(EFFECT_FILES
 )
 
 SET(POST_PROCESSORS
+	${KLAYGE_PROJECT_DIR}/Samples/media/PostProcessing/BlackHole.ppml
 	${KLAYGE_PROJECT_DIR}/Samples/media/PostProcessing/CrossStitching.ppml
 	${KLAYGE_PROJECT_DIR}/Samples/media/PostProcessing/FrostedGlass.ppml
 	${KLAYGE_PROJECT_DIR}/Samples/media/PostProcessing/Sepia.ppml
@@ -60,12 +62,10 @@ SET(CONTENT_FILES
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/DeferredRenderingDebug.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/Depth.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/GBufferNoSkinning.kfx
-	${KLAYGE_PROJECT_DIR}/media/RenderFX/GBufferSkinning64.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/GBufferSkinning128.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/Font.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/LensEffects.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/LightSourceProxy.kfx
-	${KLAYGE_PROJECT_DIR}/media/RenderFX/LightIndexedDeferredRendering4.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/LightIndexedDeferredRendering32.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/MultiRes.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/Particle.kfx
@@ -90,6 +90,7 @@ SET(CONTENT_FILES
 	${KLAYGE_PROJECT_DIR}/media/Textures/Cube/rnl_cross_filtered_c.dds
 	${KLAYGE_PROJECT_DIR}/media/Textures/Cube/rnl_cross_filtered_y.dds
 	${KLAYGE_PROJECT_DIR}/Samples/media/PostProcessing/AsciiArtsPP.kfx
+	${KLAYGE_PROJECT_DIR}/Samples/media/PostProcessing/BlackHolePP.kfx
 	${KLAYGE_PROJECT_DIR}/Samples/media/PostProcessing/CartoonPP.kfx
 	${KLAYGE_PROJECT_DIR}/Samples/media/PostProcessing/CrossStitching.kfx
 	${KLAYGE_PROJECT_DIR}/Samples/media/PostProcessing/FrostedGlass.kfx
@@ -103,12 +104,12 @@ SET(EXTRA_INCLUDE_DIRS
 	${KLAYGE_PROJECT_DIR}/../kfont/include)
 SET(EXTRA_LINKED_DIRS
 	${KLAYGE_PROJECT_DIR}/../kfont/lib/${KLAYGE_PLATFORM_NAME})
-IF(NOT MSVC)
+IF(NOT KLAYGE_COMPILER_MSVC)
 	SET(EXTRA_LINKED_LIBRARIES ${EXTRA_LINKED_LIBRARIES}
 		debug kfont${KLAYGE_OUTPUT_SUFFIX}${CMAKE_DEBUG_POSTFIX} optimized kfont${KLAYGE_OUTPUT_SUFFIX})
 ENDIF()
 
-IF(KLAYGE_PLATFORM_WINDOWS_RUNTIME)
+IF(KLAYGE_PLATFORM_WINDOWS_STORE)
 	SET(PACKAGE_GUID "AC840C84-9653-4F0C-BC5D-E30D102E5BEA")
 ENDIF()
 

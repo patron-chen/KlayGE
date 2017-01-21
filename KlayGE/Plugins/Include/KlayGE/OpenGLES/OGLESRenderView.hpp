@@ -32,7 +32,7 @@ namespace KlayGE
 		void ClearStencil(int32_t stencil);
 		void ClearDepthStencil(float depth, int32_t stencil);
 
-		GLuint OGLTexture() const
+		GLuint GLTexture() const
 		{
 			return tex_;
 		}
@@ -50,7 +50,7 @@ namespace KlayGE
 
 	typedef std::shared_ptr<OGLESRenderView> OGLESRenderViewPtr;
 
-	class OGLESScreenColorRenderView : public OGLESRenderView, boost::noncopyable
+	class OGLESScreenColorRenderView : public OGLESRenderView
 	{
 	public:
 		OGLESScreenColorRenderView(uint32_t width, uint32_t height, ElementFormat pf);
@@ -69,7 +69,7 @@ namespace KlayGE
 	typedef std::shared_ptr<OGLESScreenColorRenderView> OGLES2ScreenColorRenderViewPtr;
 
 
-	class OGLESScreenDepthStencilRenderView : public OGLESRenderView, boost::noncopyable
+	class OGLESScreenDepthStencilRenderView : public OGLESRenderView
 	{
 	public:
 		OGLESScreenDepthStencilRenderView(uint32_t width, uint32_t height, ElementFormat pf);
@@ -85,10 +85,10 @@ namespace KlayGE
 	typedef std::shared_ptr<OGLESScreenDepthStencilRenderView> OGLES2ScreenDepthStencilRenderViewPtr;
 
 
-	class OGLESTexture1DRenderView : public OGLESRenderView, boost::noncopyable
+	class OGLESTexture1DRenderView : public OGLESRenderView
 	{
 	public:
-		OGLESTexture1DRenderView(Texture& texture_1d, int array_index, int level);
+		OGLESTexture1DRenderView(Texture& texture_1d, int array_index, int array_size, int level);
 
 		void ClearColor(Color const & clr);
 
@@ -100,16 +100,17 @@ namespace KlayGE
 	private:
 		OGLESTexture1D& texture_1d_;
 		int array_index_;
+		int array_size_;
 		int level_;
 	};
 
 	typedef std::shared_ptr<OGLESTexture1DRenderView> OGLES2Texture1DRenderViewPtr;
 
 
-	class OGLESTexture2DRenderView : public OGLESRenderView, boost::noncopyable
+	class OGLESTexture2DRenderView : public OGLESRenderView
 	{
 	public:
-		OGLESTexture2DRenderView(Texture& texture_2d, int array_index, int level);
+		OGLESTexture2DRenderView(Texture& texture_2d, int array_index, int array_size, int level);
 
 		void ClearColor(Color const & clr);
 
@@ -121,13 +122,14 @@ namespace KlayGE
 	private:
 		OGLESTexture2D& texture_2d_;
 		int array_index_;
+		int array_size_;
 		int level_;
 	};
 
 	typedef std::shared_ptr<OGLESTexture2DRenderView> OGLES2Texture2DRenderViewPtr;
 
 
-	class OGLESTexture3DRenderView : public OGLESRenderView, boost::noncopyable
+	class OGLESTexture3DRenderView : public OGLESRenderView
 	{
 	public:
 		OGLESTexture3DRenderView(Texture& texture_3d, int array_index, uint32_t slice, int level);
@@ -156,10 +158,11 @@ namespace KlayGE
 	typedef std::shared_ptr<OGLESTexture3DRenderView> OGLES2Texture3DRenderViewPtr;
 
 
-	class OGLESTextureCubeRenderView : public OGLESRenderView, boost::noncopyable
+	class OGLESTextureCubeRenderView : public OGLESRenderView
 	{
 	public:
 		OGLESTextureCubeRenderView(Texture& texture_cube, int array_index, Texture::CubeFaces face, int level);
+		OGLESTextureCubeRenderView(Texture& texture_cube, int array_index, int level);
 
 		void ClearColor(Color const & clr);
 
@@ -177,11 +180,11 @@ namespace KlayGE
 	typedef std::shared_ptr<OGLESTextureCubeRenderView> OGLES2TextureCubeRenderViewPtr;
 
 
-	class OGLESDepthStencilRenderView : public OGLESRenderView, boost::noncopyable
+	class OGLESDepthStencilRenderView : public OGLESRenderView
 	{
 	public:
 		OGLESDepthStencilRenderView(uint32_t width, uint32_t height, ElementFormat pf, uint32_t sample_count, uint32_t sample_quality);
-		OGLESDepthStencilRenderView(Texture& texture, int array_index, int level);
+		OGLESDepthStencilRenderView(Texture& texture, int array_index, int array_size, int level);
 		~OGLESDepthStencilRenderView();
 
 		void ClearColor(Color const & clr);
@@ -194,6 +197,7 @@ namespace KlayGE
 	private:
 		GLenum target_type_;
 		int array_index_;
+		int array_size_;
 		int level_;
 		uint32_t sample_count_, sample_quality_;
 		GLuint rbos_[2];
@@ -202,7 +206,7 @@ namespace KlayGE
 	typedef std::shared_ptr<OGLESDepthStencilRenderView> OGLES2DepthStencilRenderViewPtr;
 
 
-	class OGLESTextureCubeDepthStencilRenderView : public OGLESRenderView, boost::noncopyable
+	class OGLESTextureCubeDepthStencilRenderView : public OGLESRenderView
 	{
 	public:
 		OGLESTextureCubeDepthStencilRenderView(Texture& texture_cube, int array_index, Texture::CubeFaces face, int level);
@@ -223,7 +227,7 @@ namespace KlayGE
 	typedef std::shared_ptr<OGLESTextureCubeDepthStencilRenderView> OGLES2TextureCubeDepthStencilRenderViewPtr;
 
 #if defined(KLAYGE_PLATFORM_IOS)
-	class OGLESEAGLRenderView : public OGLESRenderView, boost::noncopyable
+	class OGLESEAGLRenderView : public OGLESRenderView
 	{
 	public:
 		explicit OGLESEAGLRenderView(ElementFormat pf);

@@ -56,7 +56,7 @@
 
 namespace KlayGE
 {
-	class KLAYGE_CORE_API ResLoadingDesc
+	class KLAYGE_CORE_API ResLoadingDesc : boost::noncopyable
 	{
 	public:
 		virtual ~ResLoadingDesc()
@@ -83,7 +83,7 @@ namespace KlayGE
 		virtual std::shared_ptr<void> Resource() const = 0;
 	};
 
-	class KLAYGE_CORE_API ResLoader
+	class KLAYGE_CORE_API ResLoader : boost::noncopyable
 	{
 	public:
 		ResLoader();
@@ -97,6 +97,10 @@ namespace KlayGE
 
 		void AddPath(std::string const & path);
 		void DelPath(std::string const & path);
+		std::string const & LocalFolder() const
+		{
+			return local_path_;
+		}
 
 		ResIdentifierPtr Open(std::string const & name);
 		std::string Locate(std::string const & name);
@@ -141,7 +145,7 @@ namespace KlayGE
 		AAsset* LocateFileAndroid(std::string const & name);
 #elif defined(KLAYGE_PLATFORM_IOS)
 		std::string LocateFileIOS(std::string const & name);
-#elif defined(KLAYGE_PLATFORM_WINDOWS_RUNTIME)
+#elif defined(KLAYGE_PLATFORM_WINDOWS_STORE)
 		std::string LocateFileWinRT(std::string const & name);
 #endif
 
@@ -156,7 +160,9 @@ namespace KlayGE
 		};
 
 		std::string exe_path_;
+		std::string local_path_;
 		std::vector<std::string> paths_;
+		std::mutex paths_mutex_;
 
 		std::mutex loaded_mutex_;
 		std::mutex loading_mutex_;

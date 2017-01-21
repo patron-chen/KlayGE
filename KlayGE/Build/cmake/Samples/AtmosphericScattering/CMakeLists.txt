@@ -1,5 +1,6 @@
-DOWNLOAD_FILE("KlayGE/Samples/media/AtmosphericScattering/earth_color.dds" "cbda47a1678ce70b6720856736100979d469e159" "d7403dbcf242b65198c4d96816a655bee3f07622")
-DOWNLOAD_FILE("KlayGE/Samples/media/AtmosphericScattering/geosphere.7z" "cbda47a1678ce70b6720856736100979d469e159" "7caf25a9bc2fa910faec90bbfc53e8df7d1d8c95")
+DOWNLOAD_FILE("KlayGE/Samples/media/AtmosphericScattering/earth_day.dds" "70c85cc54ca5a5bc393fdd04f1e2627024ff83cc" "23347ac909cbaf9aed03e8228d4eb64639e785f7")
+DOWNLOAD_FILE("KlayGE/Samples/media/AtmosphericScattering/earth_night.dds" "70c85cc54ca5a5bc393fdd04f1e2627024ff83cc" "1d44faa87e412a4d675aa4de5d4a1cf4bb0b68e7")
+DOWNLOAD_FILE("KlayGE/Samples/media/AtmosphericScattering/geosphere.meshml" "6087c70ee0482c7d2085e5411553b374d08b8ebe" "19f021ac780d313c9c3058d0c5605ddd1bce4746")
 DOWNLOAD_FILE("KlayGE/Samples/media/AtmosphericScattering/ocean_mask.dds" "cbda47a1678ce70b6720856736100979d469e159" "e006d8f16187e53c34f49c29d092a8f53f74824b")
 
 SET(SOURCE_FILES
@@ -40,12 +41,13 @@ SET(CONTENT_FILES
 	${KLAYGE_PROJECT_DIR}/media/Textures/2D/ui.dds
 	${KLAYGE_PROJECT_DIR}/media/Textures/3D/color_grading.dds
 	${KLAYGE_PROJECT_DIR}/Samples/media/AtmosphericScattering/AtmosphericScattering.kfx
-	${KLAYGE_PROJECT_DIR}/Samples/media/AtmosphericScattering/earth_color.dds
+	${KLAYGE_PROJECT_DIR}/Samples/media/AtmosphericScattering/earth_day.dds
+	${KLAYGE_PROJECT_DIR}/Samples/media/AtmosphericScattering/earth_night.dds
 	${KLAYGE_PROJECT_DIR}/Samples/media/AtmosphericScattering/geosphere.meshml.model_bin
 	${KLAYGE_PROJECT_DIR}/Samples/media/AtmosphericScattering/ocean_mask.dds
 )
 	
-IF(KLAYGE_PLATFORM_WINDOWS_RUNTIME)
+IF(KLAYGE_PLATFORM_WINDOWS_STORE)
 	SET(PACKAGE_GUID "be19c46c-d114-4f14-b908-71599c66f7c7")
 ENDIF()
 

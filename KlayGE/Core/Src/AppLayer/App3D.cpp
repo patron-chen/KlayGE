@@ -45,7 +45,7 @@
 
 #include <KlayGE/App3D.hpp>
 
-#ifdef KLAYGE_PLATFORM_WINDOWS_RUNTIME
+#ifdef KLAYGE_PLATFORM_WINDOWS_STORE
 #include <KFL/COMPtr.hpp>
 
 #include <wrl/client.h>
@@ -73,7 +73,7 @@ using namespace concurrency;
 
 namespace KlayGE
 {
-#if defined KLAYGE_PLATFORM_WINDOWS_RUNTIME
+#if defined KLAYGE_PLATFORM_WINDOWS_STORE
 	class MetroFrameworkSource;
 
 	class MetroFramework : public RuntimeClass<ABI::Windows::ApplicationModel::Core::IFrameworkView>
@@ -102,6 +102,10 @@ namespace KlayGE
 			ABI::Windows::UI::Core::ICoreWindowEventArgs* args);
 		HRESULT OnVisibilityChanged(ABI::Windows::UI::Core::ICoreWindow* sender,
 			ABI::Windows::UI::Core::IVisibilityChangedEventArgs* args);
+		HRESULT OnKeyDown(ABI::Windows::UI::Core::ICoreWindow* sender,
+			ABI::Windows::UI::Core::IKeyEventArgs* args);
+		HRESULT OnKeyUp(ABI::Windows::UI::Core::ICoreWindow* sender,
+			ABI::Windows::UI::Core::IKeyEventArgs* args);
 		HRESULT OnPointerPressed(ABI::Windows::UI::Core::ICoreWindow* sender,
 			ABI::Windows::UI::Core::IPointerEventArgs* args);
 		HRESULT OnPointerReleased(ABI::Windows::UI::Core::ICoreWindow* sender,
@@ -110,18 +114,13 @@ namespace KlayGE
 			ABI::Windows::UI::Core::IPointerEventArgs* args);
 		HRESULT OnPointerWheelChanged(ABI::Windows::UI::Core::ICoreWindow* sender,
 			ABI::Windows::UI::Core::IPointerEventArgs* args);
-#if (_WIN32_WINNT >= _WIN32_WINNT_WINBLUE)
 		HRESULT OnDpiChanged(ABI::Windows::Graphics::Display::IDisplayInformation* sender, IInspectable* args);
-#else
-		HRESULT OnDpiChanged(IInspectable* sender);
-#endif
+		HRESULT OnOrientationChanged(ABI::Windows::Graphics::Display::IDisplayInformation* sender, IInspectable* args);
 
 	private:
 		App3DFramework* app_;
 		std::shared_ptr<ABI::Windows::ApplicationModel::Core::ICoreApplicationView> app_view_;
 		std::shared_ptr<ABI::Windows::UI::Core::ICoreWindow> window_;
-
-		std::array<uint32_t, 16> pointer_id_map_;
 
 		EventRegistrationToken app_activated_token_;
 		EventRegistrationToken app_suspending_token_;
@@ -131,6 +130,9 @@ namespace KlayGE
 		EventRegistrationToken visibility_changed_token_;
 		EventRegistrationToken win_closed_token_;
 		EventRegistrationToken dpi_changed_token_;
+		EventRegistrationToken orientation_changed_token_;
+		EventRegistrationToken key_down_token_;
+		EventRegistrationToken key_up_token_;
 		EventRegistrationToken pointer_pressed_token_;
 		EventRegistrationToken pointer_released_token_;
 		EventRegistrationToken pointer_moved_token_;
@@ -156,7 +158,6 @@ namespace KlayGE
 	HRESULT MetroFramework::RuntimeClassInitialize(App3DFramework* app)
 	{
 		app_ = app;
-		pointer_id_map_.fill(0);
 
 		return S_OK;
 	}
@@ -199,14 +200,19 @@ namespace KlayGE
 			std::bind(&MetroFramework::OnWindowClosed, this, std::placeholders::_1, std::placeholders::_2)).Get(),
 			&win_closed_token_);
 
-#ifndef KLAYGE_PLATFORM_WINDOWS_PHONE
 		ComPtr<ICoreCursorFactory> cursor_factory;
 		GetActivationFactory(HStringReference(RuntimeClass_Windows_UI_Core_CoreCursor).Get(),
 			&cursor_factory);
 		ComPtr<ICoreCursor> cursor;
 		cursor_factory->CreateCursor(CoreCursorType::CoreCursorType_Arrow, 0, &cursor);
 		window_->put_PointerCursor(cursor.Get());
-#endif
+
+		window_->add_KeyDown(Callback<ITypedEventHandler<CoreWindow*, KeyEventArgs*>>(
+			std::bind(&MetroFramework::OnKeyDown, this, std::placeholders::_1, std::placeholders::_2)).Get(),
+			&key_down_token_);
+		window_->add_KeyUp(Callback<ITypedEventHandler<CoreWindow*, KeyEventArgs*>>(
+			std::bind(&MetroFramework::OnKeyUp, this, std::placeholders::_1, std::placeholders::_2)).Get(),
+			&key_up_token_);
 
 		window_->add_PointerPressed(Callback<ITypedEventHandler<CoreWindow*, PointerEventArgs*>>(
 			std::bind(&MetroFramework::OnPointerPressed, this, std::placeholders::_1, std::placeholders::_2)).Get(),
@@ -221,7 +227,6 @@ namespace KlayGE
 			std::bind(&MetroFramework::OnPointerWheelChanged, this, std::placeholders::_1, std::placeholders::_2)).Get(),
 			&pointer_wheel_changed_token_);
 
-#if (_WIN32_WINNT >= _WIN32_WINNT_WINBLUE)
 		ComPtr<IDisplayInformationStatics> disp_info_stat;
 		GetActivationFactory(HStringReference(RuntimeClass_Windows_Graphics_Display_DisplayInformation).Get(),
 			&disp_info_stat);
@@ -232,15 +237,10 @@ namespace KlayGE
 		disp_info->add_DpiChanged(Callback<ITypedEventHandler<DisplayInformation*, IInspectable*>>(
 			std::bind(&MetroFramework::OnDpiChanged, this, std::placeholders::_1, std::placeholders::_2)).Get(),
 			&dpi_changed_token_);
-#else
-		ComPtr<IDisplayPropertiesStatics> disp_prop;
-		GetActivationFactory(HStringReference(RuntimeClass_Windows_Graphics_Display_DisplayProperties).Get(),
-			&disp_prop);
 
-		disp_prop->add_LogicalDpiChanged(Callback<IDisplayPropertiesEventHandler>(
-			std::bind(&MetroFramework::OnDpiChanged, this, std::placeholders::_1)).Get(),
-			&dpi_changed_token_);
-#endif
+		disp_info->add_OrientationChanged(Callback<ITypedEventHandler<DisplayInformation*, IInspectable*>>(
+			std::bind(&MetroFramework::OnOrientationChanged, this, std::placeholders::_1, std::placeholders::_2)).Get(),
+			&orientation_changed_token_);
 
 		app_->MainWnd()->SetWindow(window_);
 		app_->MetroCreate();
@@ -264,10 +264,22 @@ namespace KlayGE
 
 	IFACEMETHODIMP MetroFramework::Uninitialize()
 	{
+		ComPtr<IDisplayInformationStatics> disp_info_stat;
+		GetActivationFactory(HStringReference(RuntimeClass_Windows_Graphics_Display_DisplayInformation).Get(),
+			&disp_info_stat);
+
+		ComPtr<IDisplayInformation> disp_info;
+		disp_info_stat->GetForCurrentView(&disp_info);
+
+		disp_info->remove_DpiChanged(dpi_changed_token_);
+		disp_info->remove_OrientationChanged(orientation_changed_token_);
+
 		window_->remove_PointerWheelChanged(pointer_wheel_changed_token_);
 		window_->remove_PointerMoved(pointer_moved_token_);
 		window_->remove_PointerReleased(pointer_released_token_);
 		window_->remove_PointerPressed(pointer_pressed_token_);
+		window_->remove_KeyUp(key_up_token_);
+		window_->remove_KeyDown(key_down_token_);
 		window_->remove_Closed(win_closed_token_);
 		window_->remove_VisibilityChanged(visibility_changed_token_);
 		window_->remove_SizeChanged(win_size_changed_token_);
@@ -296,6 +308,9 @@ namespace KlayGE
 		ComPtr<ICoreWindow> core_win;
 		core_win_stat->GetForCurrentThread(&core_win);
 		core_win->Activate();
+
+		WindowPtr const & win = app_->MainWnd();
+		win->OnActivated();
 
 		return S_OK;
 	}
@@ -333,12 +348,9 @@ namespace KlayGE
 	HRESULT MetroFramework::OnWindowSizeChanged(ICoreWindow* sender, IWindowSizeChangedEventArgs* args)
 	{
 		KFL_UNUSED(sender);
-		KFL_UNUSED(args);
 
 		WindowPtr const & win = app_->MainWnd();
-		win->Active(true);
-		win->Ready(true);
-		win->OnSize()(*win, true);
+		win->OnSizeChanged(args);
 
 		return S_OK;
 	}
@@ -347,13 +359,8 @@ namespace KlayGE
 	{
 		KFL_UNUSED(sender);
 
-		boolean vis;
-		TIF(args->get_Visible(&vis));
-
-		bool const bvis = vis ? true : false;
 		WindowPtr const & win = app_->MainWnd();
-		win->Active(bvis);
-		win->OnActive()(*win, bvis);
+		win->OnVisibilityChanged(args);
 
 		return S_OK;
 	}
@@ -364,10 +371,27 @@ namespace KlayGE
 		KFL_UNUSED(args);
 
 		WindowPtr const & win = app_->MainWnd();
-		win->OnClose()(*win);
-		win->Active(false);
-		win->Ready(false);
-		win->Closed(true);
+		win->OnClosed();
+
+		return S_OK;
+	}
+
+	HRESULT MetroFramework::OnKeyDown(ICoreWindow* sender, IKeyEventArgs* args)
+	{
+		KFL_UNUSED(sender);
+
+		WindowPtr const & win = app_->MainWnd();
+		win->OnKeyDown(args);
+
+		return S_OK;
+	}
+
+	HRESULT MetroFramework::OnKeyUp(ICoreWindow* sender, IKeyEventArgs* args)
+	{
+		KFL_UNUSED(sender);
+
+		WindowPtr const & win = app_->MainWnd();
+		win->OnKeyUp(args);
 
 		return S_OK;
 	}
@@ -376,29 +400,8 @@ namespace KlayGE
 	{
 		KFL_UNUSED(sender);
 
-		ComPtr<IPointerPoint> point;
-		TIF(args->get_CurrentPoint(&point));
-
-		UINT32 pid;
-		TIF(point->get_PointerId(&pid));
-
-		uint32_t conv_id = 0;
-		for (size_t i = 0; i < pointer_id_map_.size(); ++i)
-		{
-			if (0 == pointer_id_map_[i])
-			{
-				conv_id = static_cast<uint32_t>(i + 1);
-				pointer_id_map_[i] = pid;
-				break;
-			}
-		}
-
-		Point position;
-		TIF(point->get_Position(&position));
 		WindowPtr const & win = app_->MainWnd();
-		win->OnPointerDown()(*win,
-			int2(static_cast<int>(position.X * win->DPIScale()), static_cast<int>(position.Y * win->DPIScale())),
-			conv_id);
+		win->OnPointerPressed(args);
 
 		return S_OK;
 	}
@@ -407,29 +410,8 @@ namespace KlayGE
 	{
 		KFL_UNUSED(sender);
 
-		ComPtr<IPointerPoint> point;
-		TIF(args->get_CurrentPoint(&point));
-
-		UINT32 pid;
-		TIF(point->get_PointerId(&pid));
-
-		uint32_t conv_id = 0;
-		for (size_t i = 0; i < pointer_id_map_.size(); ++i)
-		{
-			if (pid == pointer_id_map_[i])
-			{
-				conv_id = static_cast<uint32_t>(i + 1);
-				pointer_id_map_[i] = 0;
-				break;
-			}
-		}
-
-		Point position;
-		TIF(point->get_Position(&position));
 		WindowPtr const & win = app_->MainWnd();
-		win->OnPointerUp()(*win,
-			int2(static_cast<int>(position.X * win->DPIScale()), static_cast<int>(position.Y * win->DPIScale())),
-			conv_id);
+		win->OnPointerReleased(args);
 
 		return S_OK;
 	}
@@ -438,30 +420,8 @@ namespace KlayGE
 	{
 		KFL_UNUSED(sender);
 
-		ComPtr<IPointerPoint> point;
-		TIF(args->get_CurrentPoint(&point));
-
-		UINT32 pid;
-		TIF(point->get_PointerId(&pid));
-
-		uint32_t conv_id = 0;
-		for (size_t i = 0; i < pointer_id_map_.size(); ++i)
-		{
-			if (pid == pointer_id_map_[i])
-			{
-				conv_id = static_cast<uint32_t>(i + 1);
-				break;
-			}
-		}
-
-		Point position;
-		TIF(point->get_Position(&position));
-		boolean contact;
-		TIF(point->get_IsInContact(&contact));
 		WindowPtr const & win = app_->MainWnd();
-		win->OnPointerUpdate()(*win,
-			int2(static_cast<int>(position.X * win->DPIScale()), static_cast<int>(position.Y * win->DPIScale())),
-			conv_id, contact ? true : false);
+		win->OnPointerMoved(args);
 
 		return S_OK;
 	}
@@ -470,50 +430,30 @@ namespace KlayGE
 	{
 		KFL_UNUSED(sender);
 
-		ComPtr<IPointerPoint> point;
-		TIF(args->get_CurrentPoint(&point));
-
-		UINT32 pid;
-		TIF(point->get_PointerId(&pid));
-
-		uint32_t conv_id = 0;
-		for (size_t i = 0; i < pointer_id_map_.size(); ++i)
-		{
-			if (pid == pointer_id_map_[i])
-			{
-				conv_id = static_cast<uint32_t>(i + 1);
-				break;
-			}
-		}
-
-		Point position;
-		TIF(point->get_Position(&position));
-		ComPtr<IPointerPointProperties> properties;
-		TIF(point->get_Properties(&properties));
-		INT32 wheel;
-		TIF(properties->get_MouseWheelDelta(&wheel));
 		WindowPtr const & win = app_->MainWnd();
-		win->OnPointerWheel()(*win,
-			int2(static_cast<int>(position.X * win->DPIScale()), static_cast<int>(position.Y * win->DPIScale())),
-			conv_id, wheel);
+		win->OnPointerWheelChanged(args);
 
 		return S_OK;
 	}
 
-#if (_WIN32_WINNT >= _WIN32_WINNT_WINBLUE)
 	HRESULT MetroFramework::OnDpiChanged(IDisplayInformation* sender, IInspectable* args)
-#else
-	HRESULT MetroFramework::OnDpiChanged(IInspectable* sender)
-#endif
 	{
 		KFL_UNUSED(sender);
-#if (_WIN32_WINNT >= _WIN32_WINNT_WINBLUE)
 		KFL_UNUSED(args);
-#endif
 
 		WindowPtr const & win = app_->MainWnd();
-		win->DetectsDPI();
-		win->OnSize()(*win, true);
+		win->OnDpiChanged();
+
+		return S_OK;
+	}
+
+	HRESULT MetroFramework::OnOrientationChanged(IDisplayInformation* sender, IInspectable* args)
+	{
+		KFL_UNUSED(sender);
+		KFL_UNUSED(args);
+
+		WindowPtr const & win = app_->MainWnd();
+		win->OnOrientationChanged();
 
 		return S_OK;
 	}
@@ -541,7 +481,7 @@ namespace KlayGE
 
 		ContextCfg cfg = Context::Instance().Config();
 		main_wnd_ = this->MakeWindow(name_, cfg.graphics_cfg);
-#ifndef KLAYGE_PLATFORM_WINDOWS_RUNTIME
+#ifndef KLAYGE_PLATFORM_WINDOWS_STORE
 		cfg.graphics_cfg.left = main_wnd_->Left();
 		cfg.graphics_cfg.top = main_wnd_->Top();
 		cfg.graphics_cfg.width = main_wnd_->Width();
@@ -559,7 +499,7 @@ namespace KlayGE
 
 		ContextCfg cfg = Context::Instance().Config();
 		main_wnd_ = this->MakeWindow(name_, cfg.graphics_cfg, native_wnd);
-#ifndef KLAYGE_PLATFORM_WINDOWS_RUNTIME
+#ifndef KLAYGE_PLATFORM_WINDOWS_STORE
 		cfg.graphics_cfg.left = main_wnd_->Left();
 		cfg.graphics_cfg.top = main_wnd_->Top();
 		cfg.graphics_cfg.width = main_wnd_->Width();
@@ -575,7 +515,7 @@ namespace KlayGE
 
 	// 建立应用程序主窗口
 	/////////////////////////////////////////////////////////////////////////////////
-#ifdef KLAYGE_PLATFORM_WINDOWS_RUNTIME
+#ifdef KLAYGE_PLATFORM_WINDOWS_STORE
 	void App3DFramework::Create()
 	{
 	}
@@ -635,7 +575,20 @@ namespace KlayGE
 		return MakeSharedPtr<Window>(name, settings, native_wnd);
 	}
 
-#if defined KLAYGE_PLATFORM_WINDOWS_RUNTIME
+	bool App3DFramework::ConfirmDevice() const
+	{
+		bool confirmed = true;
+
+		ContextCfg const & cfg = Context::Instance().Config();
+		if (cfg.deferred_rendering)
+		{
+			confirmed &= DeferredRenderingLayer::ConfirmDevice();
+		}
+
+		return confirmed;
+	}
+
+#if defined KLAYGE_PLATFORM_WINDOWS_STORE
 	void App3DFramework::Run()
 	{
 		ComPtr<ICoreApplication> core_app;
@@ -683,7 +636,7 @@ namespace KlayGE
 				re.Refresh();
 			}
 		}
-#elif defined KLAYGE_PLATFORM_WINDOWS_RUNTIME
+#elif defined KLAYGE_PLATFORM_WINDOWS_STORE
 		ComPtr<ICoreWindowStatic> core_win_stat;
 		TIF(GetActivationFactory(HStringReference(RuntimeClass_Windows_UI_Core_CoreWindow).Get(),
 			&core_win_stat));

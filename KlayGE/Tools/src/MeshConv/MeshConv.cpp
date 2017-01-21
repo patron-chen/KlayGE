@@ -6,6 +6,8 @@
 #include <KlayGE/RenderLayout.hpp>
 #include <KlayGE/Renderable.hpp>
 #include <KlayGE/Mesh.hpp>
+#include <KlayGE/RenderMaterial.hpp>
+#include <KFL/CXX17/filesystem.hpp>
 
 #include <iostream>
 #include <fstream>
@@ -23,34 +25,6 @@
 #endif
 #include <boost/algorithm/string/trim.hpp>
 
-#if defined(KLAYGE_TS_LIBRARY_FILESYSTEM_V3_SUPPORT)
-	#include <experimental/filesystem>
-#elif defined(KLAYGE_TS_LIBRARY_FILESYSTEM_V2_SUPPORT)
-	#include <filesystem>
-	namespace std
-	{
-		namespace experimental
-		{
-			namespace filesystem = std::tr2::sys;
-		}
-	}
-#else
-	#if defined(KLAYGE_COMPILER_GCC)
-		#pragma GCC diagnostic push
-		#pragma GCC diagnostic ignored "-Wdeprecated-declarations" // Ignore auto_ptr declaration
-	#endif
-	#include <boost/filesystem.hpp>
-	#if defined(KLAYGE_COMPILER_GCC)
-		#pragma GCC diagnostic pop
-	#endif
-	namespace std
-	{
-		namespace experimental
-		{
-			namespace filesystem = boost::filesystem;
-		}
-	}
-#endif
 #if defined(KLAYGE_COMPILER_GCC)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations" // Ignore auto_ptr declaration
@@ -69,7 +43,6 @@
 
 using namespace std;
 using namespace KlayGE;
-using namespace std::experimental;
 
 namespace
 {
@@ -101,7 +74,7 @@ namespace
 
 	void RecursiveTransformMesh(MeshMLObj& meshml_obj, float4x4 const & parent_mat, aiNode const * node, std::vector<Mesh> const & meshes)
 	{
-		auto const trans_mat = parent_mat * MathLib::transpose(float4x4(&node->mTransformation.a1));
+		auto const trans_mat = MathLib::transpose(float4x4(&node->mTransformation.a1)) * parent_mat;
 		auto const trans_quat = MathLib::to_quaternion(trans_mat);
 
 		for (unsigned int n = 0; n < node->mNumMeshes; ++ n)
@@ -181,36 +154,34 @@ namespace
 		{
 			int mtl_id = meshml_obj.AllocMaterial();
 
-			float3 ambient(0, 0, 0);
-			float3 diffuse(0, 0, 0);
-			float3 specular(0, 0, 0);
-			float3 emit(0, 0, 0);
-			float opacity = 1;
+			std::string name;
+			float3 albedo(0, 0, 0);
+			float metalness = 0;
 			float shininess = 1;
+			float3 emissive(0, 0, 0);
+			float opacity = 1;
+			bool transparent = false;
 
-			aiColor4D ai_ambient;
-			aiColor4D ai_diffuse;
-			aiColor4D ai_specular;
-			aiColor4D ai_emit;
+			aiString ai_name;
+			aiColor4D ai_albedo;
 			float ai_opacity;
 			float ai_shininess;
+			aiColor4D ai_emissive;
 
 			auto mtl = scene->mMaterials[mi];
-			if (AI_SUCCESS == aiGetMaterialColor(mtl, AI_MATKEY_COLOR_AMBIENT, &ai_ambient))
+			
+			if (AI_SUCCESS == aiGetMaterialString(mtl, AI_MATKEY_NAME, &ai_name))
 			{
-				ambient = Color4ToFloat3(ai_ambient);
+				name = ai_name.C_Str();
 			}
-			if (AI_SUCCESS == aiGetMaterialColor(mtl, AI_MATKEY_COLOR_DIFFUSE, &ai_diffuse))
+
+			if (AI_SUCCESS == aiGetMaterialColor(mtl, AI_MATKEY_COLOR_DIFFUSE, &ai_albedo))
 			{
-				diffuse = Color4ToFloat3(ai_diffuse);
+				albedo = Color4ToFloat3(ai_albedo);
 			}
-			if (AI_SUCCESS == aiGetMaterialColor(mtl, AI_MATKEY_COLOR_SPECULAR, &ai_specular))
+			if (AI_SUCCESS == aiGetMaterialColor(mtl, AI_MATKEY_COLOR_EMISSIVE, &ai_emissive))
 			{
-				specular = Color4ToFloat3(ai_specular);
-			}
-			if (AI_SUCCESS == aiGetMaterialColor(mtl, AI_MATKEY_COLOR_EMISSIVE, &ai_emit))
-			{
-				emit = Color4ToFloat3(ai_emit);
+				emissive = Color4ToFloat3(ai_emissive);
 			}
 
 			unsigned int max = 1;
@@ -231,8 +202,16 @@ namespace
 					shininess *= strength;
 				}
 			}
+			shininess = MathLib::clamp(shininess, 1.0f, MAX_SHININESS);
 
-			meshml_obj.SetMaterial(mtl_id, ambient, diffuse, specular, emit, opacity, shininess);
+			if ((opacity < 1) || (aiGetMaterialTextureCount(mtl, aiTextureType_OPACITY) > 0))
+			{
+				transparent = true;
+			}
+
+			meshml_obj.SetMaterial(mtl_id, name, float4(albedo.x(), albedo.y(), albedo.z(), opacity),
+				metalness, Shininess2Glossiness(shininess),
+				emissive, transparent, 0, false);
 
 			unsigned int count = aiGetMaterialTextureCount(mtl, aiTextureType_DIFFUSE);
 			if (count > 0)
@@ -240,18 +219,7 @@ namespace
 				aiString str;
 				aiGetMaterialTexture(mtl, aiTextureType_DIFFUSE, 0, &str, 0, 0, 0, 0, 0, 0);
 
-				int slot_id = meshml_obj.AllocTextureSlot(mtl_id);
-				meshml_obj.SetTextureSlot(mtl_id, slot_id, "Diffuse Color", str.C_Str());
-			}
-
-			count = aiGetMaterialTextureCount(mtl, aiTextureType_SPECULAR);
-			if (count > 0)
-			{
-				aiString str;
-				aiGetMaterialTexture(mtl, aiTextureType_SPECULAR, 0, &str, 0, 0, 0, 0, 0, 0);
-
-				int slot_id = meshml_obj.AllocTextureSlot(mtl_id);
-				meshml_obj.SetTextureSlot(mtl_id, slot_id, "Specular Color", str.C_Str());
+				meshml_obj.SetTextureSlot(mtl_id, MeshMLObj::Material::TS_Albedo, str.C_Str());
 			}
 
 			count = aiGetMaterialTextureCount(mtl, aiTextureType_SHININESS);
@@ -260,28 +228,7 @@ namespace
 				aiString str;
 				aiGetMaterialTexture(mtl, aiTextureType_SHININESS, 0, &str, 0, 0, 0, 0, 0, 0);
 
-				int slot_id = meshml_obj.AllocTextureSlot(mtl_id);
-				meshml_obj.SetTextureSlot(mtl_id, slot_id, "Glossiness", str.C_Str());
-			}
-
-			count = aiGetMaterialTextureCount(mtl, aiTextureType_NORMALS);
-			if (count > 0)
-			{
-				aiString str;
-				aiGetMaterialTexture(mtl, aiTextureType_NORMALS, 0, &str, 0, 0, 0, 0, 0, 0);
-
-				int slot_id = meshml_obj.AllocTextureSlot(mtl_id);
-				meshml_obj.SetTextureSlot(mtl_id, slot_id, "Bump Map", str.C_Str());
-			}
-
-			count = aiGetMaterialTextureCount(mtl, aiTextureType_HEIGHT);
-			if (count > 0)
-			{
-				aiString str;
-				aiGetMaterialTexture(mtl, aiTextureType_HEIGHT, 0, &str, 0, 0, 0, 0, 0, 0);
-
-				int slot_id = meshml_obj.AllocTextureSlot(mtl_id);
-				meshml_obj.SetTextureSlot(mtl_id, slot_id, "Height Map", str.C_Str());
+				meshml_obj.SetTextureSlot(mtl_id, MeshMLObj::Material::TS_Glossiness, str.C_Str());
 			}
 
 			count = aiGetMaterialTextureCount(mtl, aiTextureType_EMISSIVE);
@@ -290,18 +237,25 @@ namespace
 				aiString str;
 				aiGetMaterialTexture(mtl, aiTextureType_EMISSIVE, 0, &str, 0, 0, 0, 0, 0, 0);
 
-				int slot_id = meshml_obj.AllocTextureSlot(mtl_id);
-				meshml_obj.SetTextureSlot(mtl_id, slot_id, "Self-Illumination", str.C_Str());
+				meshml_obj.SetTextureSlot(mtl_id, MeshMLObj::Material::TS_Emissive, str.C_Str());
 			}
 
-			count = aiGetMaterialTextureCount(mtl, aiTextureType_OPACITY);
+			count = aiGetMaterialTextureCount(mtl, aiTextureType_NORMALS);
 			if (count > 0)
 			{
 				aiString str;
-				aiGetMaterialTexture(mtl, aiTextureType_OPACITY, 0, &str, 0, 0, 0, 0, 0, 0);
+				aiGetMaterialTexture(mtl, aiTextureType_NORMALS, 0, &str, 0, 0, 0, 0, 0, 0);
 
-				int slot_id = meshml_obj.AllocTextureSlot(mtl_id);
-				meshml_obj.SetTextureSlot(mtl_id, slot_id, "Opacity", str.C_Str());
+				meshml_obj.SetTextureSlot(mtl_id, MeshMLObj::Material::TS_Normal, str.C_Str());
+			}
+
+			count = aiGetMaterialTextureCount(mtl, aiTextureType_HEIGHT);
+			if (count > 0)
+			{
+				aiString str;
+				aiGetMaterialTexture(mtl, aiTextureType_HEIGHT, 0, &str, 0, 0, 0, 0, 0, 0);
+
+				meshml_obj.SetTextureSlot(mtl_id, MeshMLObj::Material::TS_Height, str.C_Str());
 			}
 		}
 
@@ -418,6 +372,9 @@ namespace
 				{
 					if (has_texcoord[tci])
 					{
+						BOOST_ASSERT(mesh->mTextureCoords[tci] != nullptr);
+						KLAYGE_ASSUME(mesh->mTextureCoords[tci] != nullptr);
+
 						texcoords[tci][vi] = float3(&mesh->mTextureCoords[tci][vi].x);
 					}
 				}

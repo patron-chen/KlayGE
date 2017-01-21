@@ -34,6 +34,7 @@
 #include <KFL/Math.hpp>
 #include <KFL/XMLDom.hpp>
 #include <KFL/Thread.hpp>
+#include <KFL/Hash.hpp>
 
 #include <fstream>
 #include <boost/assert.hpp>
@@ -47,7 +48,6 @@
 #endif
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/functional/hash.hpp>
 
 #include "OfflineShaderObject.hpp"
 #include "OfflineRenderEffect.hpp"
@@ -61,7 +61,7 @@ namespace
 	using namespace KlayGE;
 	using namespace KlayGE::Offline;
 
-	uint32_t const KFX_VERSION = 0x0107;
+	uint32_t const KFX_VERSION = 0x0110;
 
 	std::mutex singleton_mutex;
 
@@ -2120,9 +2120,9 @@ namespace KlayGE
 		{
 		}
 
-		void RenderEffect::RecursiveIncludeNode(XMLNodePtr const & root, std::vector<std::string>& include_names) const
+		void RenderEffect::RecursiveIncludeNode(XMLNode const & root, std::vector<std::string>& include_names) const
 		{
-			for (XMLNodePtr node = root->FirstNode("include"); node; node = node->NextSibling("include"))
+			for (XMLNodePtr node = root.FirstNode("include"); node; node = node->NextSibling("include"))
 			{
 				XMLAttributePtr attr = node->Attrib("name");
 				BOOST_ASSERT(attr);
@@ -2131,7 +2131,7 @@ namespace KlayGE
 
 				XMLDocument include_doc;
 				XMLNodePtr include_root = include_doc.Parse(ResLoader::Instance().Open(include_name));
-				this->RecursiveIncludeNode(include_root, include_names);
+				this->RecursiveIncludeNode(*include_root, include_names);
 
 				bool found = false;
 				for (size_t i = 0; i < include_names.size(); ++ i)
@@ -2150,14 +2150,14 @@ namespace KlayGE
 			}
 		}
 
-		void RenderEffect::InsertIncludeNodes(XMLDocument& target_doc, XMLNodePtr const & target_root,
-			XMLNodePtr const & target_place, XMLNodePtr const & include_root) const
+		void RenderEffect::InsertIncludeNodes(XMLDocument& target_doc, XMLNode& target_root,
+			XMLNodePtr const & target_place, XMLNode const & include_root) const
 		{
-			for (XMLNodePtr child_node = include_root->FirstNode(); child_node; child_node = child_node->NextSibling())
+			for (XMLNodePtr child_node = include_root.FirstNode(); child_node; child_node = child_node->NextSibling())
 			{
 				if ((XNT_Element == child_node->Type()) && (child_node->Name() != "include"))
 				{
-					target_root->InsertNode(target_place, target_doc.CloneNode(child_node));
+					target_root.InsertNode(target_place, target_doc.CloneNode(child_node));
 				}
 			}
 		}
@@ -2173,7 +2173,7 @@ namespace KlayGE
 
 			ResIdentifierPtr source = ResLoader::Instance().Open(fxml_name);
 
-			XMLDocumentPtr doc;
+			std::unique_ptr<XMLDocument> doc;
 			XMLNodePtr root;
 
 			res_name_ = MakeSharedPtr<std::string>(fxml_name);
@@ -2181,11 +2181,11 @@ namespace KlayGE
 			{
 				timestamp_ = source->Timestamp();
 
-				doc = MakeSharedPtr<XMLDocument>();
+				doc = MakeUniquePtr<XMLDocument>();
 				root = doc->Parse(source);
 
 				std::vector<std::string> include_names;
-				this->RecursiveIncludeNode(root, include_names);
+				this->RecursiveIncludeNode(*root, include_names);
 
 				for (auto const & include_name : include_names)
 				{
@@ -2207,7 +2207,7 @@ namespace KlayGE
 
 				XMLAttributePtr attr;
 
-				std::vector<XMLDocumentPtr> include_docs;
+				std::vector<std::unique_ptr<XMLDocument>> include_docs;
 				std::vector<std::string> whole_include_names;
 				for (XMLNodePtr node = root->FirstNode("include"); node;)
 				{
@@ -2215,11 +2215,11 @@ namespace KlayGE
 					BOOST_ASSERT(attr);
 					std::string include_name = attr->ValueString();
 
-					include_docs.push_back(MakeSharedPtr<XMLDocument>());
+					include_docs.push_back(MakeUniquePtr<XMLDocument>());
 					XMLNodePtr include_root = include_docs.back()->Parse(ResLoader::Instance().Open(include_name));
 
 					include_names.clear();
-					this->RecursiveIncludeNode(include_root, include_names);
+					this->RecursiveIncludeNode(*include_root, include_names);
 
 					if (!include_names.empty())
 					{
@@ -2241,9 +2241,9 @@ namespace KlayGE
 							}
 							else
 							{
-								include_docs.push_back(MakeSharedPtr<XMLDocument>());
+								include_docs.push_back(MakeUniquePtr<XMLDocument>());
 								XMLNodePtr recursive_include_root = include_docs.back()->Parse(ResLoader::Instance().Open(*iter));
-								this->InsertIncludeNodes(*doc, root, node, recursive_include_root);
+								this->InsertIncludeNodes(*doc, *root, node, *recursive_include_root);
 
 								whole_include_names.push_back(*iter);
 								++ iter;
@@ -2263,7 +2263,7 @@ namespace KlayGE
 
 					if (!found)
 					{
-						this->InsertIncludeNodes(*doc, root, node, include_root);
+						this->InsertIncludeNodes(*doc, *root, node, *include_root);
 						whole_include_names.push_back(include_name);
 					}
 
@@ -2392,6 +2392,10 @@ namespace KlayGE
 			uint32_t shader_ver = Native2LE(caps_.native_shader_version);
 			os.write(reinterpret_cast<char const *>(&shader_ver), sizeof(shader_ver));
 
+			uint8_t shader_platform_name_len = static_cast<uint8_t>(caps_.platform.size());
+			os.write(reinterpret_cast<char const *>(&shader_platform_name_len), sizeof(shader_platform_name_len));
+			os.write(&caps_.platform[0], shader_platform_name_len);
+
 			uint64_t timestamp = Native2LE(timestamp_);
 			os.write(reinterpret_cast<char const *>(&timestamp), sizeof(timestamp));
 
@@ -2491,7 +2495,7 @@ namespace KlayGE
 
 		RenderEffectParameterPtr const & RenderEffect::ParameterByName(std::string const & name) const
 		{
-			size_t const name_hash = boost::hash_range(name.begin(), name.end());
+			size_t const name_hash = HashRange(name.begin(), name.end());
 			for (auto const & param : params_)
 			{
 				if (name_hash == param->NameHash())
@@ -2505,7 +2509,7 @@ namespace KlayGE
 
 		RenderEffectParameterPtr const & RenderEffect::ParameterBySemantic(std::string const & semantic) const
 		{
-			size_t const semantic_hash = boost::hash_range(semantic.begin(), semantic.end());
+			size_t const semantic_hash = HashRange(semantic.begin(), semantic.end());
 			for (auto const & param : params_)
 			{
 				if (semantic_hash == param->SemanticHash())
@@ -2519,7 +2523,7 @@ namespace KlayGE
 
 		RenderEffectConstantBufferPtr const & RenderEffect::CBufferByName(std::string const & name) const
 		{
-			size_t const name_hash = boost::hash_range(name.begin(), name.end());
+			size_t const name_hash = HashRange(name.begin(), name.end());
 			for (auto const & cbuffer : cbuffers_)
 			{
 				if (name_hash == cbuffer->NameHash())
@@ -2533,7 +2537,7 @@ namespace KlayGE
 
 		RenderTechniquePtr const & RenderEffect::TechniqueByName(std::string const & name) const
 		{
-			size_t const name_hash = boost::hash_range(name.begin(), name.end());
+			size_t const name_hash = HashRange(name.begin(), name.end());
 			for (auto const & tech : techniques_)
 			{
 				if (name_hash == tech->NameHash())
@@ -2858,7 +2862,7 @@ namespace KlayGE
 		void RenderTechnique::Load(XMLNodePtr const & node, uint32_t tech_index)
 		{
 			name_ = MakeSharedPtr<std::remove_reference<decltype(*name_)>::type>(node->Attrib("name")->ValueString());
-			name_hash_ = boost::hash_range(name_->begin(), name_->end());
+			name_hash_ = HashRange(name_->begin(), name_->end());
 
 			RenderTechniquePtr parent_tech;
 			XMLAttributePtr inherit_attr = node->Attrib("inherit");
@@ -3059,7 +3063,7 @@ namespace KlayGE
 		void RenderPass::Load(XMLNodePtr const & node, uint32_t tech_index, uint32_t pass_index, RenderPassPtr const & inherit_pass)
 		{
 			name_ = MakeSharedPtr<std::remove_reference<decltype(*name_)>::type>(node->Attrib("name")->ValueString());
-			name_hash_ = boost::hash_range(name_->begin(), name_->end());
+			name_hash_ = HashRange(name_->begin(), name_->end());
 
 			{
 				XMLNodePtr anno_node = node->FirstNode("annotation");
@@ -3127,14 +3131,14 @@ namespace KlayGE
 				for (uint32_t i = 0; i < tech->NumMacros(); ++ i)
 				{
 					std::pair<std::string, std::string> const & name_value = tech->MacroByIndex(i);
-					boost::hash_range(hash_val, name_value.first.begin(), name_value.first.end());
-					boost::hash_range(hash_val, name_value.second.begin(), name_value.second.end());
+					HashRange(hash_val, name_value.first.begin(), name_value.first.end());
+					HashRange(hash_val, name_value.second.begin(), name_value.second.end());
 				}
 				for (uint32_t i = 0; i < this->NumMacros(); ++ i)
 				{
 					std::pair<std::string, std::string> const & name_value = this->MacroByIndex(i);
-					boost::hash_range(hash_val, name_value.first.begin(), name_value.first.end());
-					boost::hash_range(hash_val, name_value.second.begin(), name_value.second.end());
+					HashRange(hash_val, name_value.first.begin(), name_value.first.end());
+					HashRange(hash_val, name_value.second.begin(), name_value.second.end());
 				}
 				macros_hash = static_cast<uint64_t>(hash_val);
 			}
@@ -3152,10 +3156,6 @@ namespace KlayGE
 				rs_desc = inherit_pass->rasterizer_state_desc_;
 				dss_desc = inherit_pass->depth_stencil_state_desc_;
 				bs_desc = inherit_pass->blend_state_desc_;
-				front_stencil_ref_ = inherit_pass->front_stencil_ref_;
-				back_stencil_ref_ = inherit_pass->back_stencil_ref_;
-				blend_factor_ = inherit_pass->blend_factor_;
-				sample_mask_ = inherit_pass->sample_mask_;
 
 				for (size_t i = 0; i < shader_desc_ids_->size(); ++ i)
 				{
@@ -3285,27 +3285,27 @@ namespace KlayGE
 					XMLAttributePtr attr = state_node->Attrib("r");
 					if (attr)
 					{
-						blend_factor_.r() = attr->ValueFloat();
+						bs_desc.blend_factor.r() = attr->ValueFloat();
 					}
 					attr = state_node->Attrib("g");
 					if (attr)
 					{
-						blend_factor_.g() = attr->ValueFloat();
+						bs_desc.blend_factor.g() = attr->ValueFloat();
 					}
 					attr = state_node->Attrib("b");
 					if (attr)
 					{
-						blend_factor_.b() = attr->ValueFloat();
+						bs_desc.blend_factor.b() = attr->ValueFloat();
 					}
 					attr = state_node->Attrib("a");
 					if (attr)
 					{
-						blend_factor_.a() = attr->ValueFloat();
+						bs_desc.blend_factor.a() = attr->ValueFloat();
 					}
 				}
 				else if (CT_HASH("sample_mask") == state_name_hash)
 				{
-					sample_mask_ = state_node->Attrib("value")->ValueUInt();
+					bs_desc.sample_mask = state_node->Attrib("value")->ValueUInt();
 				}
 				else if (CT_HASH("depth_enable") == state_name_hash)
 				{
@@ -3331,7 +3331,7 @@ namespace KlayGE
 				}
 				else if (CT_HASH("front_stencil_ref") == state_name_hash)
 				{
-					front_stencil_ref_ = static_cast<uint16_t>(state_node->Attrib("value")->ValueUInt());
+					dss_desc.front_stencil_ref = static_cast<uint16_t>(state_node->Attrib("value")->ValueUInt());
 				}
 				else if (CT_HASH("front_stencil_read_mask") == state_name_hash)
 				{
@@ -3367,7 +3367,7 @@ namespace KlayGE
 				}
 				else if (CT_HASH("back_stencil_ref") == state_name_hash)
 				{
-					back_stencil_ref_ = static_cast<uint16_t>(state_node->Attrib("value")->ValueUInt());
+					dss_desc.back_stencil_ref = static_cast<uint16_t>(state_node->Attrib("value")->ValueUInt());
 				}
 				else if (CT_HASH("back_stencil_read_mask") == state_name_hash)
 				{
@@ -3433,13 +3433,13 @@ namespace KlayGE
 						XMLNodePtr so_node = state_node->FirstNode("stream_output");
 						if (so_node)
 						{
-							for (XMLNodePtr slot_node = so_node->FirstNode("slot"); slot_node; slot_node = slot_node->NextSibling("slot"))
+							for (XMLNodePtr entry_node = so_node->FirstNode("entry"); entry_node; entry_node = entry_node->NextSibling("entry"))
 							{
 								ShaderDesc::StreamOutputDecl decl;
 
-								std::string usage_str = slot_node->Attrib("usage")->ValueString();
+								std::string usage_str = entry_node->Attrib("usage")->ValueString();
 								size_t const usage_str_hash = RT_HASH(usage_str.c_str());
-								XMLAttributePtr attr = slot_node->Attrib("usage_index");
+								XMLAttributePtr attr = entry_node->Attrib("usage_index");
 								if (attr)
 								{
 									decl.usage_index = static_cast<uint8_t>(attr->ValueInt());
@@ -3489,11 +3489,11 @@ namespace KlayGE
 									decl.usage = VEU_Binormal;
 								}
 
-								attr = slot_node->Attrib("component");
+								attr = entry_node->Attrib("component");
 								std::string component_str;
 								if (attr)
 								{
-									component_str = slot_node->Attrib("component")->ValueString();
+									component_str = entry_node->Attrib("component")->ValueString();
 								}
 								else
 								{
@@ -3501,6 +3501,16 @@ namespace KlayGE
 								}
 								decl.start_component = static_cast<uint8_t>(component_str[0] - 'x');
 								decl.component_count = static_cast<uint8_t>(std::min(static_cast<size_t>(4), component_str.size()));
+
+								attr = entry_node->Attrib("slot");
+								if (attr)
+								{
+									decl.slot = static_cast<uint8_t>(entry_node->Attrib("slot")->ValueInt());
+								}
+								else
+								{
+									decl.slot = 0;
+								}
 
 								sd.so_decl.push_back(decl);
 							}
@@ -3552,7 +3562,7 @@ namespace KlayGE
 			BOOST_ASSERT(inherit_pass);
 
 			name_ = inherit_pass->name_;
-			name_hash_ = boost::hash_range(name_->begin(), name_->end());
+			name_hash_ = HashRange(name_->begin(), name_->end());
 			annotations_ = inherit_pass->annotations_;
 			macros_ = inherit_pass->macros_;
 
@@ -3564,14 +3574,14 @@ namespace KlayGE
 				for (uint32_t i = 0; i < tech->NumMacros(); ++ i)
 				{
 					std::pair<std::string, std::string> const & name_value = tech->MacroByIndex(i);
-					boost::hash_range(hash_val, name_value.first.begin(), name_value.first.end());
-					boost::hash_range(hash_val, name_value.second.begin(), name_value.second.end());
+					HashRange(hash_val, name_value.first.begin(), name_value.first.end());
+					HashRange(hash_val, name_value.second.begin(), name_value.second.end());
 				}
 				for (uint32_t i = 0; i < this->NumMacros(); ++ i)
 				{
 					std::pair<std::string, std::string> const & name_value = this->MacroByIndex(i);
-					boost::hash_range(hash_val, name_value.first.begin(), name_value.first.end());
-					boost::hash_range(hash_val, name_value.second.begin(), name_value.second.end());
+					HashRange(hash_val, name_value.first.begin(), name_value.first.end());
+					HashRange(hash_val, name_value.second.begin(), name_value.second.end());
 				}
 				macros_hash = static_cast<uint64_t>(hash_val);
 			}
@@ -3584,10 +3594,6 @@ namespace KlayGE
 			rasterizer_state_desc_ = inherit_pass->rasterizer_state_desc_;
 			depth_stencil_state_desc_ = inherit_pass->depth_stencil_state_desc_;
 			blend_state_desc_ = inherit_pass->blend_state_desc_;
-			front_stencil_ref_ = inherit_pass->front_stencil_ref_;
-			back_stencil_ref_ = inherit_pass->back_stencil_ref_;
-			blend_factor_ = inherit_pass->blend_factor_;
-			sample_mask_ = inherit_pass->sample_mask_;
 
 			for (int type = 0; type < ShaderObject::ST_NumShaderTypes; ++ type)
 			{
@@ -3660,12 +3666,14 @@ namespace KlayGE
 		
 			dss_desc.depth_func = Native2LE(dss_desc.depth_func);
 			dss_desc.front_stencil_func = Native2LE(dss_desc.front_stencil_func);
+			dss_desc.front_stencil_ref = Native2LE(dss_desc.front_stencil_ref);
 			dss_desc.front_stencil_read_mask = Native2LE(dss_desc.front_stencil_read_mask);
 			dss_desc.front_stencil_write_mask = Native2LE(dss_desc.front_stencil_write_mask);
 			dss_desc.front_stencil_fail = Native2LE(dss_desc.front_stencil_fail);
 			dss_desc.front_stencil_depth_fail = Native2LE(dss_desc.front_stencil_depth_fail);
 			dss_desc.front_stencil_pass = Native2LE(dss_desc.front_stencil_pass);
 			dss_desc.back_stencil_func = Native2LE(dss_desc.back_stencil_func);
+			dss_desc.back_stencil_ref = Native2LE(dss_desc.back_stencil_ref);
 			dss_desc.back_stencil_read_mask = Native2LE(dss_desc.back_stencil_read_mask);
 			dss_desc.back_stencil_write_mask = Native2LE(dss_desc.back_stencil_write_mask);
 			dss_desc.back_stencil_fail = Native2LE(dss_desc.back_stencil_fail);
@@ -3673,6 +3681,11 @@ namespace KlayGE
 			dss_desc.back_stencil_pass = Native2LE(dss_desc.back_stencil_pass);
 			os.write(reinterpret_cast<char const *>(&dss_desc), sizeof(dss_desc));
 
+			for (size_t i = 0; i < 4; ++i)
+			{
+				bs_desc.blend_factor[i] = Native2LE(bs_desc.blend_factor[i]);
+			}
+			bs_desc.sample_mask = Native2LE(bs_desc.sample_mask);
 			for (size_t i = 0; i < bs_desc.blend_op.size(); ++ i)
 			{
 				bs_desc.blend_op[i] = Native2LE(bs_desc.blend_op[i]);
@@ -3683,26 +3696,6 @@ namespace KlayGE
 				bs_desc.dest_blend_alpha[i] = Native2LE(bs_desc.dest_blend_alpha[i]);
 			}		
 			os.write(reinterpret_cast<char const *>(&bs_desc), sizeof(bs_desc));
-
-			{
-				uint16_t tmp;
-				tmp = Native2LE(front_stencil_ref_);
-				os.write(reinterpret_cast<char const *>(&tmp), sizeof(tmp));
-				tmp = Native2LE(back_stencil_ref_);
-				os.write(reinterpret_cast<char const *>(&tmp), sizeof(tmp));
-			}
-			{
-				Color tmp;
-				tmp.r() = Native2LE(blend_factor_.r());
-				tmp.g() = Native2LE(blend_factor_.g());
-				tmp.b() = Native2LE(blend_factor_.b());
-				tmp.a() = Native2LE(blend_factor_.a());
-				os.write(reinterpret_cast<char const *>(&tmp), sizeof(tmp));
-			}
-			{
-				uint32_t tmp = Native2LE(sample_mask_);
-				os.write(reinterpret_cast<char const *>(&tmp), sizeof(tmp));
-			}
 
 			for (uint32_t i = 0; i < shader_desc_ids_->size(); ++ i)
 			{
@@ -3759,7 +3752,7 @@ namespace KlayGE
 		void RenderEffectConstantBuffer::Load(std::string const & name)
 		{
 			name_ = MakeSharedPtr<std::remove_reference<decltype(*name_)>::type>(name);
-			name_hash_ = boost::hash_range(name_->begin(), name_->end());
+			name_hash_ = HashRange(name_->begin(), name_->end());
 			param_indices_ = MakeSharedPtr<std::remove_reference<decltype(*param_indices_)>::type>();
 		}
 
@@ -3800,7 +3793,7 @@ namespace KlayGE
 		{
 			type_ = type_define::instance().type_code(node->Attrib("type")->ValueString());
 			name_ = MakeSharedPtr<std::remove_reference<decltype(*name_)>::type>(node->Attrib("name")->ValueString());
-			name_hash_ = boost::hash_range(name_->begin(), name_->end());
+			name_hash_ = HashRange(name_->begin(), name_->end());
 
 			XMLAttributePtr attr = node->Attrib("semantic");
 			if (attr)

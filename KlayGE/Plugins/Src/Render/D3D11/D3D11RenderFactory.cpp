@@ -96,28 +96,17 @@ namespace KlayGE
 
 	QueryPtr D3D11RenderFactory::MakeConditionalRender()
 	{
-		D3D11RenderEngine& re = *checked_cast<D3D11RenderEngine*>(&Context::Instance().RenderFactoryInstance().RenderEngineInstance());
-		if (re.DeviceFeatureLevel() >= D3D_FEATURE_LEVEL_10_0)
-		{
-			return MakeSharedPtr<D3D11ConditionalRender>();
-		}
-		else
-		{
-			return QueryPtr();
-		}
+		return MakeSharedPtr<D3D11ConditionalRender>();
 	}
 
 	QueryPtr D3D11RenderFactory::MakeTimerQuery()
 	{
-		D3D11RenderEngine& re = *checked_cast<D3D11RenderEngine*>(&Context::Instance().RenderFactoryInstance().RenderEngineInstance());
-		if (re.DeviceFeatureLevel() >= D3D_FEATURE_LEVEL_10_0)
-		{
-			return MakeSharedPtr<D3D11TimerQuery>();
-		}
-		else
-		{
-			return QueryPtr();
-		}
+		return MakeSharedPtr<D3D11TimerQuery>();
+	}
+
+	QueryPtr D3D11RenderFactory::MakeSOStatisticsQuery()
+	{
+		return MakeSharedPtr<D3D11SOStatisticsQuery>();
 	}
 
 	FencePtr D3D11RenderFactory::MakeFence()
@@ -245,19 +234,10 @@ namespace KlayGE
 		return MakeUniquePtr<D3D11RenderEngine>();
 	}
 
-	RasterizerStateObjectPtr D3D11RenderFactory::DoMakeRasterizerStateObject(RasterizerStateDesc const & desc)
+	RenderStateObjectPtr D3D11RenderFactory::DoMakeRenderStateObject(RasterizerStateDesc const & rs_desc,
+		DepthStencilStateDesc const & dss_desc, BlendStateDesc const & bs_desc)
 	{
-		return MakeSharedPtr<D3D11RasterizerStateObject>(desc);
-	}
-
-	DepthStencilStateObjectPtr D3D11RenderFactory::DoMakeDepthStencilStateObject(DepthStencilStateDesc const & desc)
-	{
-		return MakeSharedPtr<D3D11DepthStencilStateObject>(desc);
-	}
-
-	BlendStateObjectPtr D3D11RenderFactory::DoMakeBlendStateObject(BlendStateDesc const & desc)
-	{
-		return MakeSharedPtr<D3D11BlendStateObject>(desc);
+		return MakeSharedPtr<D3D11RenderStateObject>(rs_desc, dss_desc, bs_desc);
 	}
 
 	SamplerStateObjectPtr D3D11RenderFactory::DoMakeSamplerStateObject(SamplerStateDesc const & desc)

@@ -17,11 +17,12 @@
 #include <KFL/ThrowErr.hpp>
 
 #include <cstring>
+#include <system_error>
 #include <boost/assert.hpp>
 
 #include <KlayGE/Socket.hpp>
 
-#ifndef KLAYGE_PLATFORM_WINDOWS_RUNTIME
+#ifndef KLAYGE_PLATFORM_WINDOWS_STORE
 
 #ifdef KLAYGE_COMPILER_MSVC
 #ifndef KLAYGE_CPU_ARM
@@ -77,7 +78,7 @@ namespace KlayGE
 			}
 			else
 			{
-				THR(errc::bad_address);
+				THR(std::errc::bad_address);
 			}
 		}
 

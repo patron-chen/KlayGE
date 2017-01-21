@@ -23,6 +23,7 @@
 #include <KlayGE/Window.hpp>
 
 #include <map>
+#include <system_error>
 #include <boost/assert.hpp>
 #include <boost/lexical_cast.hpp>
 
@@ -63,8 +64,8 @@ namespace KlayGE
 		}
 		else
 		{
-			top_ = settings.top;
-			left_ = settings.left;
+			left_ = main_wnd->Left();
+			top_ = main_wnd->Top();
 		}
 
 #if !(defined KLAYGE_PLATFORM_IOS)
@@ -119,29 +120,28 @@ namespace KlayGE
 			break;
 		}
 
+		bool test_es_3_2 = true;
 		bool test_es_3_1 = true;
-		bool test_es_3_0 = true;
 #if defined(KLAYGE_PLATFORM_ANDROID)
-		test_es_3_1 = false;
-#if (__ANDROID_API__ < 18)
-		test_es_3_0 = false;
-#endif
+		// TODO
+		test_es_3_2 = false;
 #endif
 #if defined(KLAYGE_PLATFORM_DARWIN)
+		// TODO
+		test_es_3_2 = false;
 		test_es_3_1 = false;
-		test_es_3_0 = false;
 #endif
 
 		std::vector<std::tuple<std::string, EGLint, int, int>> available_versions;
+		if (test_es_3_2)
+		{
+			available_versions.push_back(std::make_tuple("3.2", EGL_OPENGL_ES3_BIT_KHR, 3, 2));
+		}
 		if (test_es_3_1)
 		{
 			available_versions.push_back(std::make_tuple("3.1", EGL_OPENGL_ES3_BIT_KHR, 3, 1));
 		}
-		if (test_es_3_0)
-		{
-			available_versions.push_back(std::make_tuple("3.0", EGL_OPENGL_ES3_BIT_KHR, 3, 0));
-		}
-		available_versions.push_back(std::make_tuple("2.0", EGL_OPENGL_ES2_BIT, 2, 0));
+		available_versions.push_back(std::make_tuple("3.0", EGL_OPENGL_ES3_BIT_KHR, 3, 0));
 
 		for (size_t index = 0; index < settings.options.size(); ++ index)
 		{
@@ -272,9 +272,9 @@ namespace KlayGE
 
 		eglMakeCurrent(display_, surf_, surf_, context_);
 
-		if (!glloader_GLES_VERSION_2_0())
+		if (!glloader_GLES_VERSION_3_0())
 		{
-			THR(errc::function_not_supported);
+			THR(std::errc::function_not_supported);
 		}
 
 		eglSwapInterval(display_, 0);
@@ -322,9 +322,6 @@ namespace KlayGE
 		// Notify viewports of resize
 		viewport_->width = width;
 		viewport_->height = height;
-
-		App3DFramework& app = Context::Instance().AppInstance();
-		app.OnResize(width, height);
 	}
 
 	// 改变窗口位置
@@ -394,17 +391,14 @@ namespace KlayGE
 
 	void OGLESRenderWindow::WindowMovedOrResized(Window const & win)
 	{
-		WindowPtr const & main_wnd = Context::Instance().AppInstance().MainWnd();
-		float const dpi_scale = main_wnd->DPIScale();
-
-#if defined KLAYGE_PLATFORM_WINDOWS
 		KFL_UNUSED(win);
 
+#if defined KLAYGE_PLATFORM_WINDOWS
 		::RECT rect;
 		::GetClientRect(hWnd_, &rect);
 
-		uint32_t new_left = static_cast<uint32_t>(rect.left * dpi_scale + 0.5f);
-		uint32_t new_top = static_cast<uint32_t>(rect.top * dpi_scale + 0.5f);
+		uint32_t new_left = rect.left;
+		uint32_t new_top = rect.top;
 		if ((new_left != left_) || (new_top != top_))
 		{
 			this->Reposition(new_left, new_top);
@@ -417,34 +411,21 @@ namespace KlayGE
 		uint32_t new_width = DisplayWidth(x_display_, screen);
 		uint32_t new_height = DisplayHeight(x_display_, screen);
 #elif defined KLAYGE_PLATFORM_ANDROID
-		// TODO: Is it correct?
-		uint32_t new_left = win.Left() / 2;
-		uint32_t new_top = win.Top() / 2;
-		if ((new_left != left_) || (new_top != top_))
-		{
-			this->Reposition(new_left, new_top);
-		}
-
 		EGLint w, h;
 		eglQuerySurface(display_, surf_, EGL_WIDTH, &w);
 		eglQuerySurface(display_, surf_, EGL_HEIGHT, &h);
 
-		uint32_t new_width = w - new_left;
-		uint32_t new_height = h - new_top;
+		uint32_t new_width = w;
+		uint32_t new_height = h;
 #elif defined KLAYGE_PLATFORM_DARWIN
-		KFL_UNUSED(win);
 		uint2 screen = Context::Instance().AppInstance().MainWnd()->GetNSViewSize();
 		uint32_t new_width = screen[0];
 		uint32_t new_height = screen[1];
 #elif defined KLAYGE_PLATFORM_IOS
-		KFL_UNUSED(win);
 		uint2 screen = Context::Instance().AppInstance().MainWnd()->GetGLKViewSize();
 		uint32_t new_width = screen[0];
 		uint32_t new_height = screen[1];
 #endif
-
-		new_width = static_cast<uint32_t>(new_width * dpi_scale + 0.5f);
-		new_height = static_cast<uint32_t>(new_height * dpi_scale + 0.5f);
 
 		if ((new_width != width_) || (new_height != height_))
 		{

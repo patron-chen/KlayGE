@@ -33,6 +33,7 @@
 #include <KlayGE/Window.hpp>
 
 #include <map>
+#include <system_error>
 #include <boost/assert.hpp>
 #include <boost/lexical_cast.hpp>
 
@@ -65,11 +66,6 @@ namespace KlayGE
 		available_versions.emplace_back("4.3", std::make_pair(4, 3));
 		available_versions.emplace_back("4.2", std::make_pair(4, 2));
 		available_versions.emplace_back("4.1", std::make_pair(4, 1));
-		available_versions.emplace_back("4.0", std::make_pair(4, 0));
-		available_versions.emplace_back("3.3", std::make_pair(3, 3));
-		available_versions.emplace_back("3.2", std::make_pair(3, 2));
-		available_versions.emplace_back("3.1", std::make_pair(3, 1));
-		available_versions.emplace_back("3.0", std::make_pair(3, 0));
 
 		for (size_t index = 0; index < settings.options.size(); ++ index)
 		{
@@ -121,8 +117,8 @@ namespace KlayGE
 		else
 		{
 			// Get colour depth from display
-			top_ = settings.top;
-			left_ = settings.left;
+			left_ = main_wnd->Left();
+			top_ = main_wnd->Top();
 
 			style = WS_OVERLAPPEDWINDOW;
 		}
@@ -254,8 +250,8 @@ namespace KlayGE
 		}
 		else
 		{
-			top_ = settings.top;
-			left_ = settings.left;
+			left_ = main_wnd->Left();
+			top_ = main_wnd->Top();
 		}
 
 		x_display_ = main_wnd->XDisplay();
@@ -296,7 +292,7 @@ namespace KlayGE
 				}
 			}
 		}
-#elif defined KLAYGE_PLATFORM_DARWIN	
+#elif defined KLAYGE_PLATFORM_DARWIN
 		if (isFullScreen_)
 		{
 			left_ = 0;
@@ -304,8 +300,8 @@ namespace KlayGE
 		}
 		else
 		{
-			left_ = settings.left;
-			top_ = settings.top;
+			left_ = main_wnd->Left();
+			top_ = main_wnd->Top();
 		}
 		
 		main_wnd->CreateGLView(settings);
@@ -314,32 +310,16 @@ namespace KlayGE
 		uint32_t sample_count = settings.sample_count;
 #endif
 
-		if (!glloader_GL_VERSION_3_0()
-			&& (!glloader_GL_VERSION_2_1()
-				|| !(glloader_GL_ARB_framebuffer_object()
-					|| (glloader_GL_EXT_framebuffer_object()
-						&& glloader_GL_EXT_framebuffer_blit()))))
+		if (!glloader_GL_VERSION_4_1())
 		{
-			THR(errc::function_not_supported);
+			THR(std::errc::function_not_supported);
 		}
 
-		if (glloader_GL_VERSION_3_0())
-		{
-			glClampColor(GL_CLAMP_VERTEX_COLOR, GL_FALSE);
-			glClampColor(GL_CLAMP_FRAGMENT_COLOR, GL_FALSE);
-			glClampColor(GL_CLAMP_READ_COLOR, GL_FALSE);
-		}
-		else if (glloader_GL_ARB_color_buffer_float())
-		{
-			glClampColorARB(GL_CLAMP_VERTEX_COLOR_ARB, GL_FALSE);
-			glClampColorARB(GL_CLAMP_FRAGMENT_COLOR_ARB, GL_FALSE);
-			glClampColorARB(GL_CLAMP_READ_COLOR_ARB, GL_FALSE);
-		}
+		glClampColor(GL_CLAMP_VERTEX_COLOR, GL_FALSE);
+		glClampColor(GL_CLAMP_FRAGMENT_COLOR, GL_FALSE);
+		glClampColor(GL_CLAMP_READ_COLOR, GL_FALSE);
 
-		if (glloader_GL_VERSION_3_2() || glloader_GL_ARB_seamless_cube_map())
-		{
-			glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
-		}
+		glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
 #if defined KLAYGE_PLATFORM_WINDOWS
 		if (glloader_WGL_EXT_swap_control())
@@ -395,9 +375,6 @@ namespace KlayGE
 		// Notify viewports of resize
 		viewport_->width = width;
 		viewport_->height = height;
-
-		App3DFramework& app = Context::Instance().AppInstance();
-		app.OnResize(width, height);
 	}
 
 	// 改变窗口位置
@@ -465,15 +442,12 @@ namespace KlayGE
 
 	void OGLRenderWindow::WindowMovedOrResized()
 	{
-		WindowPtr const & main_wnd = Context::Instance().AppInstance().MainWnd();
-		float const dpi_scale = main_wnd->DPIScale();
-
 #if defined KLAYGE_PLATFORM_WINDOWS
 		::RECT rect;
 		::GetClientRect(hWnd_, &rect);
 
-		uint32_t new_left = static_cast<uint32_t>(rect.left * dpi_scale + 0.5);
-		uint32_t new_top = static_cast<uint32_t>(rect.top * dpi_scale + 0.5f);
+		uint32_t new_left = rect.left;
+		uint32_t new_top = rect.top;
 		if ((new_left != left_) || (new_top != top_))
 		{
 			this->Reposition(new_left, new_top);
@@ -490,9 +464,6 @@ namespace KlayGE
 		uint32_t new_width = screen[0];
 		uint32_t new_height = screen[1];
 #endif
-
-		new_width = static_cast<uint32_t>(new_width * dpi_scale + 0.5f);
-		new_height = static_cast<uint32_t>(new_height * dpi_scale + 0.5f);
 
 		if ((new_width != width_) || (new_height != height_))
 		{

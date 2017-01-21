@@ -13,9 +13,9 @@ CONFIGURE_FILE(
 SET(SOURCE_FILES
 	${KLAYGE_PROJECT_DIR}/Samples/src/ScenePlayer/ScenePlayer.cpp
 	${KLAYGE_PROJECT_DIR}/Samples/media/ScenePlayer/ScenePlayer.py
-	${KLAYGE_PROJECT_DIR}/Samples/media/ScenePlayer/DeferredRendering.scene
-	${KLAYGE_PROJECT_DIR}/Samples/media/ScenePlayer/GlobalIllumination.scene
-	${KLAYGE_PROJECT_DIR}/Samples/media/ScenePlayer/ShadowCubeMap.scene
+	${KLAYGE_PROJECT_DIR}/Samples/media/ScenePlayer/DeferredRendering.kges
+	${KLAYGE_PROJECT_DIR}/Samples/media/ScenePlayer/GlobalIllumination.kges
+	${KLAYGE_PROJECT_DIR}/Samples/media/ScenePlayer/ShadowCubeMap.kges
 )
 
 SET(HEADER_FILES
@@ -51,13 +51,11 @@ SET(CONTENT_FILES
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/DeferredRenderingDebug.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/Depth.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/GBufferNoSkinning.kfx
-	${KLAYGE_PROJECT_DIR}/media/RenderFX/GBufferSkinning64.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/GBufferSkinning128.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/FFT.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/Font.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/LensEffects.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/LightSourceProxy.kfx
-	${KLAYGE_PROJECT_DIR}/media/RenderFX/LightIndexedDeferredRendering4.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/LightIndexedDeferredRendering32.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/MultiRes.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/Particle.kfx
@@ -132,9 +130,9 @@ SET(CONTENT_FILES
 	${KLAYGE_PROJECT_DIR}/Samples/media/Common/sponza_crytek/vase_round.dds
 	${KLAYGE_PROJECT_DIR}/Samples/media/Common/sponza_crytek/vase_round_ddn.dds
 	${KLAYGE_PROJECT_DIR}/Samples/media/Common/sponza_crytek/vase_round_spec.dds
-	${KLAYGE_PROJECT_DIR}/Samples/media/ScenePlayer/DeferredRendering.scene
-	${KLAYGE_PROJECT_DIR}/Samples/media/ScenePlayer/GlobalIllumination.scene
-	${KLAYGE_PROJECT_DIR}/Samples/media/ScenePlayer/ShadowCubeMap.scene
+	${KLAYGE_PROJECT_DIR}/Samples/media/ScenePlayer/DeferredRendering.kges
+	${KLAYGE_PROJECT_DIR}/Samples/media/ScenePlayer/GlobalIllumination.kges
+	${KLAYGE_PROJECT_DIR}/Samples/media/ScenePlayer/ShadowCubeMap.kges
 	${KLAYGE_PROJECT_DIR}/Samples/media/ScenePlayer/ScenePlayerPy.zip
 	${KLAYGE_PROJECT_DIR}/Samples/media/ShadowCubeMap/lamp.dds
 )
@@ -149,7 +147,7 @@ SET(RELEASE_CONTENT_FILES
 	${KLAYGE_PROJECT_DIR}/bin/${KLAYGE_PLATFORM_NAME}/Script/KlayGE_ScriptEngine_Python${KLAYGE_OUTPUT_SUFFIX}.dll
 )
 
-IF(KLAYGE_PLATFORM_WINDOWS_RUNTIME)
+IF(KLAYGE_PLATFORM_WINDOWS_STORE)
 	SET(PACKAGE_GUID "ED655B57-0284-4088-8180-01EED2DF4CA2")
 ENDIF()
 
@@ -159,7 +157,7 @@ ADD_CUSTOM_COMMAND(TARGET ScenePlayer
 	PRE_BUILD
 	COMMAND "${PYTHON_EXECUTABLE}" "${KLAYGE_PROJECT_DIR}/Samples/media/ScenePlayer/MakePyZip.py")
 
-IF(NOT KLAYGE_PLATFORM_WINDOWS_RUNTIME AND NOT KLAYGE_PLATFORM_ANDROID)
+IF(NOT KLAYGE_PLATFORM_WINDOWS_STORE AND NOT KLAYGE_PLATFORM_ANDROID)
 	ADD_CUSTOM_COMMAND(TARGET ScenePlayer
 		POST_BUILD
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${KLAYGE_PROJECT_DIR}/Samples/media/ScenePlayer/ScenePlayerPy.zip ${KLAYGE_BIN_DIR})

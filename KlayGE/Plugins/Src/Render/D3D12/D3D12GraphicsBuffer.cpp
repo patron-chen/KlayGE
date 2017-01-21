@@ -49,7 +49,7 @@ namespace KlayGE
 	D3D12GraphicsBuffer::D3D12GraphicsBuffer(BufferUsage usage, uint32_t access_hint,
 							uint32_t size_in_byte, ElementFormat fmt)
 						: GraphicsBuffer(usage, access_hint, size_in_byte),
-							counter_offset_(0),
+							next_free_index_(0), counter_offset_(0),
 							fmt_as_shader_res_(fmt), curr_state_(D3D12_RESOURCE_STATE_COMMON)
 	{
 	}
@@ -75,7 +75,7 @@ namespace KlayGE
 			init_state = D3D12_RESOURCE_STATE_COPY_DEST;
 			heap_prop.Type = D3D12_HEAP_TYPE_READBACK;
 		}
-		else if ((access_hint_ & EAH_CPU_Read) || (access_hint_ & EAH_CPU_Write))
+		else if ((0 == access_hint_) || (access_hint_ & EAH_CPU_Read) || (access_hint_ & EAH_CPU_Write))
 		{
 			init_state = D3D12_RESOURCE_STATE_GENERIC_READ;
 			heap_prop.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -94,13 +94,13 @@ namespace KlayGE
 		if ((access_hint_ & EAH_GPU_Write)
 			&& !((access_hint_ & EAH_GPU_Structured) || (access_hint_ & EAH_GPU_Unordered)))
 		{
-			total_size = ((size_in_byte_ + 4 - 1) & ~(4 - 1)) + sizeof(uint32_t);
+			total_size = ((size_in_byte_ + 4 - 1) & ~(4 - 1)) + sizeof(uint64_t);
 		}
 		else if ((access_hint_ & EAH_GPU_Unordered) && (fmt_as_shader_res_ != EF_Unknown)
 			&& ((access_hint_ & EAH_Append) || (access_hint_ & EAH_Counter)))
 		{
 			total_size = ((size_in_byte_ + D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1) & ~(D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1))
-				+ sizeof(uint32_t);
+				+ sizeof(uint64_t);
 		}
 
 		D3D12_RESOURCE_DESC res_desc;
@@ -125,6 +125,8 @@ namespace KlayGE
 			&res_desc, init_state, nullptr,
 			IID_ID3D12Resource, reinterpret_cast<void**>(&buffer)));
 		buffer_ = MakeCOMPtr(buffer);
+		buffer_pool_.push_back(buffer_);
+		next_free_index_ = buffer_pool_.size();
 		curr_state_ = init_state;
 
 		if (subres_init != nullptr)
@@ -179,7 +181,7 @@ namespace KlayGE
 					& ~(D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1);
 
 				heap_prop.Type = D3D12_HEAP_TYPE_UPLOAD;
-				res_desc.Width = sizeof(uint32_t);
+				res_desc.Width = sizeof(uint64_t);
 				res_desc.Flags &= ~D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 				TIF(device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE,
 					&res_desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
@@ -205,7 +207,7 @@ namespace KlayGE
 			else
 			{
 				d3d_ua_view.Format = D3D12Mapping::MappingFormat(fmt_as_shader_res_);
-				d3d_ua_view.Buffer.StructureByteStride = structure_byte_stride;
+				d3d_ua_view.Buffer.StructureByteStride = 0;
 			}
 			d3d_ua_view.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
 			d3d_ua_view.Buffer.FirstElement = 0;
@@ -231,6 +233,7 @@ namespace KlayGE
 		counter_offset_ = 0;
 		buffer_counter_upload_.reset();
 		buffer_.reset();
+		buffer_pool_.clear();
 	}
 
 	void* D3D12GraphicsBuffer::Map(BufferAccess ba)
@@ -246,10 +249,18 @@ namespace KlayGE
 			break;
 
 		case BA_Write_Only:
-			if ((EAH_CPU_Write == access_hint_) || ((EAH_CPU_Write | EAH_GPU_Read) == access_hint_))
+			if ((0 == access_hint_) || (EAH_CPU_Write == access_hint_) || ((EAH_CPU_Write | EAH_GPU_Read) == access_hint_))
 			{
-				re.AddResourceForRemovingAfterSync(buffer_);
-				this->CreateHWResource(nullptr);
+				if (next_free_index_ == buffer_pool_.size())
+				{
+					this->CreateHWResource(nullptr);
+				}
+				else
+				{
+					buffer_ = buffer_pool_[next_free_index_];
+					++ next_free_index_;
+				}
+				re.AddResourceForRecyclingAfterSync(this);
 			}
 			else
 			{
@@ -376,6 +387,13 @@ namespace KlayGE
 		}
 	}
 
+	void D3D12GraphicsBuffer::UpdateSubresource(uint32_t offset, uint32_t size, void const * data)
+	{
+		uint8_t* p = static_cast<uint8_t*>(this->Map(BA_Write_Only));
+		memcpy(p + offset, data, size);
+		this->Unmap();
+	}
+
 	bool D3D12GraphicsBuffer::UpdateResourceBarrier(D3D12_RESOURCE_BARRIER& barrier, D3D12_RESOURCE_STATES target_state)
 	{
 		if (curr_state_ == target_state)
@@ -390,5 +408,10 @@ namespace KlayGE
 			curr_state_ = target_state;
 			return true;
 		}
+	}
+
+	void D3D12GraphicsBuffer::ResetBufferPool()
+	{
+		next_free_index_ = 0;
 	}
 }

@@ -44,7 +44,6 @@
 
 #include <KlayGE/PreDeclare.hpp>
 #include <vector>
-#include <boost/noncopyable.hpp>
 
 namespace KlayGE
 {
@@ -61,7 +60,7 @@ namespace KlayGE
 		BA_Write_No_Overwrite
 	};
 
-	class KLAYGE_CORE_API GraphicsBuffer
+	class KLAYGE_CORE_API GraphicsBuffer : boost::noncopyable
 	{
 	public:
 		class Mapper : boost::noncopyable
@@ -118,6 +117,8 @@ namespace KlayGE
 
 		virtual void CreateHWResource(void const * init_data) = 0;
 		virtual void DeleteHWResource() = 0;
+
+		virtual void UpdateSubresource(uint32_t offset, uint32_t size, void const * data) = 0;
 
 	private:
 		virtual void* Map(BufferAccess ba) = 0;

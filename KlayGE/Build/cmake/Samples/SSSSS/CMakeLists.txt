@@ -1,4 +1,4 @@
-DOWNLOAD_FILE("KlayGE/Samples/media/SSSSS/Infinite-Level_02.meshml" "cbda47a1678ce70b6720856736100979d469e159" "89fa87c8ea1857bfa767fb350f261d9529fa674f")
+DOWNLOAD_FILE("KlayGE/Samples/media/SSSSS/Infinite-Level_02.meshml" "36afc56909efad1732ba709807cebaac6e3cc4f2" "9c8ddad9f840270735d8b9670f96131d41897744")
 DOWNLOAD_FILE("KlayGE/Samples/media/SSSSS/Infinite-Level_02_Tangent_SmoothUV.dds" "cbda47a1678ce70b6720856736100979d469e159" "8f49e8ff2ab19756ebf3ba2b6213b57d20e3d203")
 DOWNLOAD_FILE("KlayGE/Samples/media/SSSSS/Map-COL.dds" "cbda47a1678ce70b6720856736100979d469e159" "ddbeb5a0bf60ce04160c3572da2365c49ac15c7d")
 
@@ -38,12 +38,10 @@ SET(CONTENT_FILES
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/DeferredRenderingDebug.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/Depth.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/GBufferNoSkinning.kfx
-	${KLAYGE_PROJECT_DIR}/media/RenderFX/GBufferSkinning64.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/GBufferSkinning128.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/Font.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/LensEffects.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/LightSourceProxy.kfx
-	${KLAYGE_PROJECT_DIR}/media/RenderFX/LightIndexedDeferredRendering4.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/LightIndexedDeferredRendering32.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/MultiRes.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/Particle.kfx
@@ -81,7 +79,7 @@ SET(CONTENT_FILES
 	${KLAYGE_PROJECT_DIR}/Samples/media/SSSSS/Map-COL.dds
 )
 
-IF(KLAYGE_PLATFORM_WINDOWS_RUNTIME)
+IF(KLAYGE_PLATFORM_WINDOWS_STORE)
 	SET(PACKAGE_GUID "B0CE0295-2665-474E-9DEA-9BC15AB32047")
 ENDIF()
 

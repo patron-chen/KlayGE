@@ -38,10 +38,11 @@
 #include <KlayGE/TexCompressionBC.hpp>
 #include <KlayGE/TexCompressionETC.hpp>
 #include <KFL/Half.hpp>
+#include <KFL/Hash.hpp>
 
 #include <cstring>
 #include <fstream>
-#include <boost/functional/hash.hpp>
+#include <system_error>
 
 #include <KlayGE/Texture.hpp>
 
@@ -561,7 +562,7 @@ namespace
 			return EF_ETC2_ABGR8_SRGB;
 
 		default:
-			THR(errc::function_not_supported);
+			THR(std::errc::function_not_supported);
 		}
 	}
 
@@ -804,7 +805,7 @@ namespace
 			return static_cast<DXGI_FORMAT>(0x8000000AUL);
 
 		default:
-			THR(errc::function_not_supported);
+			THR(std::errc::function_not_supported);
 		}
 	}
 
@@ -816,64 +817,64 @@ namespace
 		BOOST_ASSERT(IsCompressedFormat(dst_format) && !IsCompressedFormat(src_format));
 		KFL_UNUSED(src_format);
 
-		TexCompressionPtr codec;
+		std::unique_ptr<TexCompression> codec;
 		switch (dst_format)
 		{
 		case EF_BC1:
 		case EF_BC1_SRGB:
 		case EF_SIGNED_BC1:
-			codec = MakeSharedPtr<TexCompressionBC1>();
+			codec = MakeUniquePtr<TexCompressionBC1>();
 			break;
 
 		case EF_BC2:
 		case EF_BC2_SRGB:
 		case EF_SIGNED_BC2:
-			codec = MakeSharedPtr<TexCompressionBC2>();
+			codec = MakeUniquePtr<TexCompressionBC2>();
 			break;
 
 		case EF_BC3:
 		case EF_BC3_SRGB:
 		case EF_SIGNED_BC3:
-			codec = MakeSharedPtr<TexCompressionBC3>();
+			codec = MakeUniquePtr<TexCompressionBC3>();
 			break;
 
 		case EF_BC4:
 		case EF_BC4_SRGB:
 		case EF_SIGNED_BC4:
-			codec = MakeSharedPtr<TexCompressionBC4>();
+			codec = MakeUniquePtr<TexCompressionBC4>();
 			break;
 
 		case EF_BC5:
 		case EF_BC5_SRGB:
 		case EF_SIGNED_BC5:
-			codec = MakeSharedPtr<TexCompressionBC5>();
+			codec = MakeUniquePtr<TexCompressionBC5>();
 			break;
 
 		case EF_BC6:
-			codec = MakeSharedPtr<TexCompressionBC6U>();
+			codec = MakeUniquePtr<TexCompressionBC6U>();
 			break;
 
 		case EF_SIGNED_BC6:
-			codec = MakeSharedPtr<TexCompressionBC6S>();
+			codec = MakeUniquePtr<TexCompressionBC6S>();
 			break;
 
 		case EF_BC7:
 		case EF_BC7_SRGB:
-			codec = MakeSharedPtr<TexCompressionBC7>();
+			codec = MakeUniquePtr<TexCompressionBC7>();
 			break;
 
 		case EF_ETC1:
-			codec = MakeSharedPtr<TexCompressionETC1>();
+			codec = MakeUniquePtr<TexCompressionETC1>();
 			break;
 
 		case EF_ETC2_BGR8:
 		case EF_ETC2_BGR8_SRGB:
-			codec = MakeSharedPtr<TexCompressionETC2RGB8>();
+			codec = MakeUniquePtr<TexCompressionETC2RGB8>();
 			break;
 
 		case EF_ETC2_A1BGR8:
 		case EF_ETC2_A1BGR8_SRGB:
-			codec = MakeSharedPtr<TexCompressionETC2RGB8A1>();
+			codec = MakeUniquePtr<TexCompressionETC2RGB8A1>();
 			break;
 
 		case EF_ETC2_ABGR8:
@@ -978,64 +979,64 @@ namespace
 			break;
 		}
 
-		TexCompressionPtr codec;
+		std::unique_ptr<TexCompression> codec;
 		switch (src_format)
 		{
 		case EF_BC1:
 		case EF_BC1_SRGB:
 		case EF_SIGNED_BC1:
-			codec = MakeSharedPtr<TexCompressionBC1>();
+			codec = MakeUniquePtr<TexCompressionBC1>();
 			break;
 
 		case EF_BC2:
 		case EF_BC2_SRGB:
 		case EF_SIGNED_BC2:
-			codec = MakeSharedPtr<TexCompressionBC2>();
+			codec = MakeUniquePtr<TexCompressionBC2>();
 			break;
 
 		case EF_BC3:
 		case EF_BC3_SRGB:
 		case EF_SIGNED_BC3:
-			codec = MakeSharedPtr<TexCompressionBC3>();
+			codec = MakeUniquePtr<TexCompressionBC3>();
 			break;
 
 		case EF_BC4:
 		case EF_BC4_SRGB:
 		case EF_SIGNED_BC4:
-			codec = MakeSharedPtr<TexCompressionBC4>();
+			codec = MakeUniquePtr<TexCompressionBC4>();
 			break;
 
 		case EF_BC5:
 		case EF_BC5_SRGB:
 		case EF_SIGNED_BC5:
-			codec = MakeSharedPtr<TexCompressionBC5>();
+			codec = MakeUniquePtr<TexCompressionBC5>();
 			break;
 
 		case EF_BC6:
-			codec = MakeSharedPtr<TexCompressionBC6U>();
+			codec = MakeUniquePtr<TexCompressionBC6U>();
 			break;
 
 		case EF_SIGNED_BC6:
-			codec = MakeSharedPtr<TexCompressionBC6S>();
+			codec = MakeUniquePtr<TexCompressionBC6S>();
 			break;
 
 		case EF_BC7:
 		case EF_BC7_SRGB:
-			codec = MakeSharedPtr<TexCompressionBC7>();
+			codec = MakeUniquePtr<TexCompressionBC7>();
 			break;
 
 		case EF_ETC1:
-			codec = MakeSharedPtr<TexCompressionETC1>();
+			codec = MakeUniquePtr<TexCompressionETC1>();
 			break;
 
 		case EF_ETC2_BGR8:
 		case EF_ETC2_BGR8_SRGB:
-			codec = MakeSharedPtr<TexCompressionETC2RGB8>();
+			codec = MakeUniquePtr<TexCompressionETC2RGB8>();
 			break;
 
 		case EF_ETC2_A1BGR8:
 		case EF_ETC2_A1BGR8_SRGB:
-			codec = MakeSharedPtr<TexCompressionETC2RGB8A1>();
+			codec = MakeUniquePtr<TexCompressionETC2RGB8A1>();
 			break;
 
 		case EF_ETC2_ABGR8:
@@ -1241,6 +1242,8 @@ namespace
 
 		std::shared_ptr<void> MainThreadStage()
 		{
+			std::lock_guard<std::mutex> lock(main_thread_stage_mutex_);
+
 			TexturePtr const & tex = *tex_desc_.tex;
 			if (!tex || !tex->HWResourceReady())
 			{
@@ -1553,6 +1556,7 @@ namespace
 
 	private:
 		TexDesc tex_desc_;
+		std::mutex main_thread_stage_mutex_;
 	};
 }
 
@@ -1902,7 +1906,7 @@ namespace KlayGE
 				row_pitch = desc.width * NumFormatBytes(format);
 			}
 		}
-		slice_pitch = row_pitch * height;
+		slice_pitch = row_pitch * desc.height;
 
 		if (desc.reserved1[0] != 0)
 		{
@@ -2196,6 +2200,10 @@ namespace KlayGE
 		ElementFormat format, std::vector<ElementInitData> const & init_data)
 	{
 		std::ofstream file(tex_name.c_str(), std::ios_base::binary);
+		if (!file)
+		{
+			file.open((ResLoader::Instance().LocalFolder() + tex_name).c_str(), std::ios_base::binary);
+		}
 
 		uint32_t magic = Native2LE(MakeFourCC<'D', 'D', 'S', ' '>::value);
 		file.write(reinterpret_cast<char*>(&magic), sizeof(magic));
@@ -2579,6 +2587,10 @@ namespace KlayGE
 				break;
 			}
 			desc10.array_size = array_size;
+			if (Texture::TT_Cube == type)
+			{
+				desc10.array_size *= 6;
+			}
 			desc10.reserved = 0;
 
 			desc10.dxgi_format = Native2LE(desc10.dxgi_format);
@@ -3422,13 +3434,13 @@ namespace KlayGE
 		{
 			for (uint32_t z = 0; z < dst_depth; ++ z)
 			{
-				float fz = static_cast<float>(z) / dst_depth * src_depth;
-				uint32_t sz = std::min(static_cast<uint32_t>(fz + 0.5f), src_depth - 1);
+				float fz = static_cast<float>(z + 0.5f) / dst_depth * src_depth;
+				uint32_t sz = std::min(static_cast<uint32_t>(fz), src_depth - 1);
 
 				for (uint32_t y = 0; y < dst_height; ++ y)
 				{
-					float fy = static_cast<float>(y) / dst_height * src_height;
-					uint32_t sy = std::min(static_cast<uint32_t>(fy + 0.5f), src_height - 1);
+					float fy = static_cast<float>(y + 0.5f) / dst_height * src_height;
+					uint32_t sy = std::min(static_cast<uint32_t>(fy), src_height - 1);
 
 					uint8_t const * src_p = src_ptr + sz * src_cpu_slice_pitch + sy * src_cpu_row_pitch;
 					uint8_t* dst_p = dst_ptr + z * dst_cpu_slice_pitch + y * dst_cpu_row_pitch;
@@ -3441,8 +3453,8 @@ namespace KlayGE
 					{
 						for (uint32_t x = 0; x < dst_width; ++ x, dst_p += dst_elem_size)
 						{
-							float fx = static_cast<float>(x) / dst_width * src_width;
-							uint32_t sx = std::min(static_cast<uint32_t>(fx + 0.5f), src_width - 1);
+							float fx = static_cast<float>(x + 0.5f) / dst_width * src_width;
+							uint32_t sx = std::min(static_cast<uint32_t>(fx), src_width - 1);
 							std::memcpy(dst_p, src_p + sx * src_elem_size, src_elem_size);
 						}
 					}
@@ -3505,18 +3517,18 @@ namespace KlayGE
 			{
 				for (uint32_t z = 0; z < dst_depth; ++ z)
 				{
-					float fz = static_cast<float>(z) / dst_depth * src_depth;
-					uint32_t sz = std::min(static_cast<uint32_t>(fz + 0.5f), src_depth - 1);
+					float fz = static_cast<float>(z + 0.5f) / dst_depth * src_depth;
+					uint32_t sz = std::min(static_cast<uint32_t>(fz), src_depth - 1);
 
 					for (uint32_t y = 0; y < dst_height; ++ y)
 					{
-						float fy = static_cast<float>(y) / dst_height * src_height;
-						uint32_t sy = std::min(static_cast<uint32_t>(fy + 0.5f), src_height - 1);
+						float fy = static_cast<float>(y + 0.5f) / dst_height * src_height;
+						uint32_t sy = std::min(static_cast<uint32_t>(fy), src_height - 1);
 
 						for (uint32_t x = 0; x < dst_width; ++ x)
 						{
-							float fx = static_cast<float>(x) / dst_width * src_width;
-							uint32_t sx = std::min(static_cast<uint32_t>(fx + 0.5f), src_width - 1);
+							float fx = static_cast<float>(x + 0.5f) / dst_width * src_width;
+							uint32_t sx = std::min(static_cast<uint32_t>(fx), src_width - 1);
 							dst_32f[(z * dst_height + y) * dst_width + x] = src_32f[(sz * src_height + sy) * src_width + sx];
 						}
 					}

@@ -55,16 +55,13 @@ namespace KlayGE
 			effect_attrs_ |= EA_SpecialShading;
 
 			this->BindDeferredEffect(effect);
-			depth_tech_ = effect->TechniqueByName("DepthSkyBoxTech");
-			gbuffer_rt0_tech_ = effect->TechniqueByName("GBufferSkyBoxRT0Tech");
-			gbuffer_rt1_tech_ = effect->TechniqueByName("GBufferSkyBoxRT1Tech");
 			gbuffer_mrt_tech_ = effect->TechniqueByName("GBufferSkyBoxMRTTech");
 			special_shading_tech_ = effect->TechniqueByName("SkyBoxTech");
-			this->Technique(gbuffer_rt0_tech_);
+			this->Technique(effect, gbuffer_mrt_tech_);
 		}
 		else
 		{
-			this->Technique(effect->TechniqueByName("SkyBoxTech"));
+			this->Technique(effect, effect->TechniqueByName("SkyBoxTech"));
 		}
 
 		float3 xyzs[] =
@@ -85,14 +82,16 @@ namespace KlayGE
 		tc_aabb_ = AABBox(float3(0, 0, 0), float3(0, 0, 0));
 	}
 
-	void RenderableSkyBox::Technique(RenderTechniquePtr const & tech)
+	void RenderableSkyBox::Technique(RenderEffectPtr const & effect, RenderTechnique* tech)
 	{
+		effect_ = effect;
 		technique_ = tech;
-		skybox_cube_tex_ep_ = technique_->Effect().ParameterByName("skybox_tex");
-		skybox_Ccube_tex_ep_ = technique_->Effect().ParameterByName("skybox_C_tex");
-		skybox_compressed_ep_ = technique_->Effect().ParameterByName("skybox_compressed");
-		depth_far_ep_ = technique_->Effect().ParameterByName("depth_far");
-		inv_mvp_ep_ = technique_->Effect().ParameterByName("inv_mvp");
+
+		skybox_cube_tex_ep_ = effect_->ParameterByName("skybox_tex");
+		skybox_Ccube_tex_ep_ = effect_->ParameterByName("skybox_C_tex");
+		skybox_compressed_ep_ = effect_->ParameterByName("skybox_compressed");
+		depth_far_ep_ = effect_->ParameterByName("depth_far");
+		inv_mvp_ep_ = effect_->ParameterByName("inv_mvp");
 	}
 
 	void RenderableSkyBox::CubeMap(TexturePtr const & cube)
@@ -112,18 +111,6 @@ namespace KlayGE
 	{
 		switch (type)
 		{
-		case PT_OpaqueDepth:
-			technique_ = depth_tech_;
-			break;
-
-		case PT_OpaqueGBufferRT0:
-			technique_ = gbuffer_rt0_tech_;
-			break;
-
-		case PT_OpaqueGBufferRT1:
-			technique_ = gbuffer_rt1_tech_;
-			break;
-
 		case PT_OpaqueGBufferMRT:
 			technique_ = gbuffer_mrt_tech_;
 			break;

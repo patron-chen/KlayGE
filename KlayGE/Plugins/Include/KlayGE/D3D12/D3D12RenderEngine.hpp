@@ -78,9 +78,13 @@ namespace KlayGE
 		}
 
 		void BeginFrame() override;
+		void EndFrame() override;
 		void UpdateGPUTimestampsFrequency() override;
 
-		IDXGIFactory4Ptr const & DXGIFactory() const;
+		IDXGIFactory4* DXGIFactory4() const;
+		IDXGIFactory5* DXGIFactory5() const;
+		uint8_t DXGISubVer() const;
+
 		ID3D12DevicePtr const & D3DDevice() const;
 		ID3D12CommandQueuePtr const & D3DRenderCmdQueue() const;
 		ID3D12CommandAllocatorPtr const & D3DRenderCmdAllocator() const;
@@ -152,7 +156,7 @@ namespace KlayGE
 		}
 
 		void OMSetStencilRef(uint16_t stencil_ref);
-		void OMSetBlendState(Color const & blend_factor, uint32_t sample_mask);
+		void OMSetBlendFactor(Color const & blend_factor);
 		void RSSetViewports(UINT NumViewports, D3D12_VIEWPORT const * pViewports);
 		
 		void ResetRenderStates();
@@ -189,7 +193,11 @@ namespace KlayGE
 		void DeallocDSV(uint32_t offset);
 		void DeallocCBVSRVUAV(uint32_t offset);
 
-		RenderTechniquePtr BilinearBlitTech() const
+		RenderEffectPtr const & BlitEffect() const
+		{
+			return blit_effect_;
+		}
+		RenderTechnique* BilinearBlitTech() const
 		{
 			return bilinear_blit_tech_;
 		}
@@ -201,9 +209,9 @@ namespace KlayGE
 		ID3D12PipelineStatePtr const & CreateComputePSO(D3D12_COMPUTE_PIPELINE_STATE_DESC const & desc);
 		ID3D12DescriptorHeapPtr CreateDynamicCBVSRVUAVDescriptorHeap(uint32_t num);
 
-		void AddResourceForRemovingAfterSync(ID3D12ResourcePtr const & res)
+		void AddResourceForRecyclingAfterSync(D3D12GraphicsBuffer* buff)
 		{
-			remove_res_after_sync_.insert(res);
+			recycle_res_after_sync_.insert(buff);
 		}
 
 	private:
@@ -213,9 +221,10 @@ namespace KlayGE
 		virtual void DoCreateRenderWindow(std::string const & name, RenderSettings const & settings) override;
 		virtual void DoBindFrameBuffer(FrameBufferPtr const & fb) override;
 		virtual void DoBindSOBuffers(RenderLayoutPtr const & rl) override;
-		virtual void DoRender(RenderTechnique const & tech, RenderLayout const & rl) override;
-		virtual void DoDispatch(RenderTechnique const & tech, uint32_t tgx, uint32_t tgy, uint32_t tgz) override;
-		virtual void DoDispatchIndirect(RenderTechnique const & tech,
+		virtual void DoRender(RenderEffect const & effect, RenderTechnique const & tech, RenderLayout const & rl) override;
+		virtual void DoDispatch(RenderEffect const & effect, RenderTechnique const & tech,
+			uint32_t tgx, uint32_t tgy, uint32_t tgz) override;
+		virtual void DoDispatchIndirect(RenderEffect const & effect, RenderTechnique const & tech,
 			GraphicsBufferPtr const & buff_args, uint32_t offset) override;
 		virtual void DoResize(uint32_t width, uint32_t height) override;
 		virtual void DoDestroy() override;
@@ -232,8 +241,9 @@ namespace KlayGE
 
 		virtual void CheckConfig(RenderSettings& settings) override;
 
-		void UpdateRenderPSO(RenderTechnique const & tech, RenderPassPtr const & pass, RenderLayout const & rl);
-		void UpdateComputePSO(RenderPassPtr const & pass);
+		void UpdateRenderPSO(RenderEffect const & effect, RenderTechnique const & tech,
+			RenderPass const & pass, RenderLayout const & rl);
+		void UpdateComputePSO(RenderEffect const & effect, RenderPass const & pass);
 
 	private:
 		enum EngineType
@@ -245,7 +255,10 @@ namespace KlayGE
 
 		// Direct3D rendering device
 		// Only created after top-level window created
-		IDXGIFactory4Ptr gi_factory_;
+		IDXGIFactory4Ptr gi_factory_4_;
+		IDXGIFactory5Ptr gi_factory_5_;
+		uint8_t dxgi_sub_ver_;
+
 		ID3D12DevicePtr d3d_device_;
 		ID3D12CommandQueuePtr d3d_render_cmd_queue_;
 		ID3D12CommandAllocatorPtr d3d_render_cmd_allocator_;
@@ -268,13 +281,11 @@ namespace KlayGE
 
 		uint16_t stencil_ref_cache_;
 		Color blend_factor_cache_;
-		uint32_t sample_mask_cache_;
 		RenderLayout::topology_type topology_type_cache_;
 		D3D12_VIEWPORT viewport_cache_;
 		D3D12_RECT scissor_rc_cache_;
 		std::vector<GraphicsBufferPtr> so_buffs_;
-		std::set<ID3D12ResourcePtr> remove_res_after_sync_;
-		std::vector<ID3D12PipelineStatePtr> pso_cache_;
+		std::set<D3D12GraphicsBuffer*> recycle_res_after_sync_;
 		std::vector<ID3D12DescriptorHeapPtr> cbv_srv_uav_heap_cache_;
 		std::unordered_map<size_t, ID3D12RootSignaturePtr> root_signatures_;
 		std::unordered_map<size_t, ID3D12PipelineStatePtr> graphics_psos_;
@@ -309,8 +320,8 @@ namespace KlayGE
 
 		StereoMethod stereo_method_;
 
-		std::set<ElementFormat> vertex_format_;
-		std::set<ElementFormat> texture_format_;
+		std::vector<ElementFormat> vertex_format_;
+		std::vector<ElementFormat> texture_format_;
 		std::map<ElementFormat, std::vector<std::pair<uint32_t, uint32_t>>> rendertarget_format_;
 
 		double inv_timestamp_freq_;
@@ -326,7 +337,7 @@ namespace KlayGE
 		uint64_t res_cmd_fence_val_;
 
 		RenderEffectPtr blit_effect_;
-		RenderTechniquePtr bilinear_blit_tech_;
+		RenderTechnique* bilinear_blit_tech_;
 	};
 }
 

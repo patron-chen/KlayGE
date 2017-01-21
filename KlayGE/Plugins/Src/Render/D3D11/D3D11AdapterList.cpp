@@ -16,6 +16,7 @@
 #include <KFL/COMPtr.hpp>
 
 #include <vector>
+#include <system_error>
 #include <boost/assert.hpp>
 
 #include <KlayGE/D3D11/D3D11AdapterList.hpp>
@@ -44,11 +45,11 @@ namespace KlayGE
 
 	// 获取显卡
 	/////////////////////////////////////////////////////////////////////////////////
-	D3D11AdapterPtr const & D3D11AdapterList::Adapter(size_t index) const
+	D3D11Adapter& D3D11AdapterList::Adapter(size_t index) const
 	{
 		BOOST_ASSERT(index < adapters_.size());
 
-		return adapters_[index];
+		return *adapters_[index];
 	}
 
 	// 获取当前显卡索引
@@ -76,9 +77,9 @@ namespace KlayGE
 		{
 			if (dxgi_adapter != nullptr)
 			{
-				D3D11AdapterPtr adapter = MakeSharedPtr<D3D11Adapter>(adapter_no, MakeCOMPtr(dxgi_adapter));
+				auto adapter = MakeUniquePtr<D3D11Adapter>(adapter_no, MakeCOMPtr(dxgi_adapter));
 				adapter->Enumerate();
-				adapters_.push_back(adapter);
+				adapters_.push_back(std::move(adapter));
 			}
 
 			++ adapter_no;
@@ -87,7 +88,7 @@ namespace KlayGE
 		// 如果没有找到兼容的设备则抛出错误
 		if (adapters_.empty())
 		{
-			THR(errc::function_not_supported);
+			THR(std::errc::function_not_supported);
 		}
 	}
 }

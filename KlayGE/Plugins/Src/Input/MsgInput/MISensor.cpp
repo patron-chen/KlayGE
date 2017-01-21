@@ -35,9 +35,7 @@
 
 #include <KlayGE/MsgInput/MInput.hpp>
 
-#if ((defined KLAYGE_PLATFORM_WINDOWS_DESKTOP) && (_WIN32_WINNT >= _WIN32_WINNT_WIN7) && (_WIN32_WINNT < _WIN32_WINNT_WIN10)) \
-	|| (defined KLAYGE_PLATFORM_WINDOWS_RUNTIME) \
-	|| (defined KLAYGE_PLATFORM_ANDROID)
+#if defined(KLAYGE_PLATFORM_WINDOWS_DESKTOP) || defined(KLAYGE_PLATFORM_WINDOWS_STORE) || defined(KLAYGE_PLATFORM_ANDROID)
 namespace KlayGE
 {
 	std::wstring const & MsgInputSensor::Name() const
@@ -52,14 +50,14 @@ namespace KlayGE
 }
 #endif
 
-#if (defined KLAYGE_PLATFORM_WINDOWS_DESKTOP) && (_WIN32_WINNT >= _WIN32_WINNT_WIN7) && (_WIN32_WINNT < _WIN32_WINNT_WIN10)
+#if defined(KLAYGE_PLATFORM_WINDOWS_DESKTOP)
 
 #if (_WIN32_WINNT < _WIN32_WINNT_WINBLUE)
 	// Magnetometer Accuracy Data Types
 	DEFINE_PROPERTYKEY(SENSOR_DATA_TYPE_MAGNETOMETER_ACCURACY,
 		0X1637D8A2, 0X4248, 0X4275, 0X86, 0X5D, 0X55, 0X8D, 0XE8, 0X4A, 0XED, 0XFD, 22); //[VT_I4]
 
-	#if (_WIN32_WINNT < _WIN32_WINNT_WIN8)
+	#if (_WIN32_WINNT == _WIN32_WINNT_WIN7) && !defined(KLAYGE_COMPILER_GCC)
 		// Additional Motion Data Types
 		DEFINE_PROPERTYKEY(SENSOR_DATA_TYPE_ANGULAR_VELOCITY_X_DEGREES_PER_SECOND,
 			0X3F8A69A2, 0X7C5, 0X4E48, 0XA9, 0X65, 0XCD, 0X79, 0X7A, 0XAB, 0X56, 0XD5, 10); //[VT_R8]
@@ -80,6 +78,7 @@ namespace KlayGE
 
 namespace KlayGE
 {
+#if (_WIN32_WINNT < _WIN32_WINNT_WIN10)
 	class MsgInputLocationEvents : public ILocationEvents
 	{
 	public:
@@ -159,6 +158,7 @@ namespace KlayGE
 	private:
 		long ref_;
 	};
+#endif
 
 	class MsgInputSensorEvents : public ISensorEvents
 	{
@@ -260,12 +260,15 @@ namespace KlayGE
 		{
 			HRESULT hr = S_OK;
 
-			if ((nullptr == data_report) || (nullptr == sensor))
+			if (!input_sensor_->Destroyed())
 			{
-				return E_INVALIDARG;
-			}
+				if ((nullptr == data_report) || (nullptr == sensor))
+				{
+					return E_INVALIDARG;
+				}
 
-			input_sensor_->OnMotionDataUpdated(sensor, data_report);
+				input_sensor_->OnMotionDataUpdated(sensor, data_report);
+			}
 
 			return hr;
 		}
@@ -283,12 +286,15 @@ namespace KlayGE
 		{
 			HRESULT hr = S_OK;
 
-			if ((nullptr == data_report) || (nullptr == sensor))
+			if (!input_sensor_->Destroyed())
 			{
-				return E_INVALIDARG;
-			}
+				if ((nullptr == data_report) || (nullptr == sensor))
+				{
+					return E_INVALIDARG;
+				}
 
-			input_sensor_->OnOrientationDataUpdated(sensor, data_report);
+				input_sensor_->OnOrientationDataUpdated(sensor, data_report);
+			}
 
 			return hr;
 		}
@@ -296,9 +302,11 @@ namespace KlayGE
 
 
 	MsgInputSensor::MsgInputSensor()
+		: destroyed_(false)
 	{
 		HRESULT hr = ::CoInitialize(0);
 
+#if (_WIN32_WINNT < _WIN32_WINNT_WIN10)
 		if (Context::Instance().Config().location_sensor)
 		{
 			ILocation* location = nullptr;
@@ -313,7 +321,7 @@ namespace KlayGE
 				{
 					locator_ = MakeCOMPtr(location);
 
-					location_event_ = MakeSharedPtr<MsgInputLocationEvents>(this);
+					location_event_ = MakeCOMPtr(new MsgInputLocationEvents(this));
 					ILocationEvents* sensor_event;
 					location_event_->QueryInterface(IID_ILocationEvents, reinterpret_cast<void**>(&sensor_event));
 
@@ -330,6 +338,7 @@ namespace KlayGE
 				}
 			}
 		}
+#endif
 
 		ISensorManager* sensor_mgr = nullptr;
 		hr = ::CoCreateInstance(CLSID_SensorManager, nullptr, CLSCTX_INPROC_SERVER,
@@ -352,10 +361,12 @@ namespace KlayGE
 						hr = motion_sensor_collection_->GetAt(i, &sensor);
 						if (SUCCEEDED(hr))
 						{
-							std::shared_ptr<MsgInputMotionSensorEvents> motion_event = MakeSharedPtr<MsgInputMotionSensorEvents>(this);
+							std::shared_ptr<MsgInputMotionSensorEvents> motion_event
+								= MakeCOMPtr(new MsgInputMotionSensorEvents(this));
+							motion_sensor_events_.push_back(motion_event);
+
 							ISensorEvents* sensor_event;
 							motion_event->QueryInterface(IID_ISensorEvents, reinterpret_cast<void**>(&sensor_event));
-							motion_sensor_events_.push_back(motion_event);
 
 							sensor->SetEventSink(sensor_event);
 
@@ -382,10 +393,12 @@ namespace KlayGE
 						hr = orientation_sensor_collection_->GetAt(i, &sensor);
 						if (SUCCEEDED(hr))
 						{
-							std::shared_ptr<MsgInputOrientationSensorEvents> orientation_event = MakeSharedPtr<MsgInputOrientationSensorEvents>(this);
+							std::shared_ptr<MsgInputOrientationSensorEvents> orientation_event
+								= MakeCOMPtr(new MsgInputOrientationSensorEvents(this));
+							orientation_sensor_events_.push_back(orientation_event);
+
 							ISensorEvents* sensor_event;
 							orientation_event->QueryInterface(IID_ISensorEvents, reinterpret_cast<void**>(&sensor_event));
-							orientation_sensor_events_.push_back(orientation_event);
 
 							sensor->SetEventSink(sensor_event);
 
@@ -402,6 +415,9 @@ namespace KlayGE
 
 	MsgInputSensor::~MsgInputSensor()
 	{
+		destroyed_ = true;
+
+#if (_WIN32_WINNT < _WIN32_WINNT_WIN10)
 		if (locator_)
 		{
 			IID REPORT_TYPES[] = { IID_ILatLongReport };
@@ -413,47 +429,16 @@ namespace KlayGE
 			location_event_.reset();
 			locator_.reset();
 		}
+#endif
 
 		if (motion_sensor_collection_)
 		{
-			ULONG count = 0;
-			HRESULT hr = motion_sensor_collection_->GetCount(&count);
-			if (SUCCEEDED(hr))
-			{
-				for (ULONG i = 0; i < count; ++ i)
-				{
-					ISensor* sensor;
-					hr = motion_sensor_collection_->GetAt(i, &sensor);
-					if (SUCCEEDED(hr))
-					{
-						sensor->SetEventSink(nullptr);
-						sensor->Release();
-					}
-				}
-			}
-
 			motion_sensor_events_.clear();
 			motion_sensor_collection_.reset();
 		}
 
 		if (orientation_sensor_collection_)
 		{
-			ULONG count = 0;
-			HRESULT hr = orientation_sensor_collection_->GetCount(&count);
-			if (SUCCEEDED(hr))
-			{
-				for (ULONG i = 0; i < count; ++ i)
-				{
-					ISensor* sensor;
-					hr = orientation_sensor_collection_->GetAt(i, &sensor);
-					if (SUCCEEDED(hr))
-					{
-						sensor->SetEventSink(nullptr);
-						sensor->Release();
-					}
-				}
-			}
-
 			orientation_sensor_events_.clear();
 			orientation_sensor_collection_.reset();
 		}
@@ -461,6 +446,7 @@ namespace KlayGE
 		::CoUninitialize();
 	}
 
+#if (_WIN32_WINNT < _WIN32_WINNT_WIN10)
 	void MsgInputSensor::OnLocationChanged(REFIID report_type, ILocationReport* location_report)
 	{
 		if (IID_ILatLongReport == report_type)
@@ -503,6 +489,7 @@ namespace KlayGE
 			}
 		}
 	}
+#endif
 
 	void MsgInputSensor::OnMotionDataUpdated(ISensor* sensor, ISensorDataReport* data_report)
 	{
@@ -737,7 +724,7 @@ namespace KlayGE
 	}
 }
 
-#elif defined KLAYGE_PLATFORM_WINDOWS_RUNTIME
+#elif defined KLAYGE_PLATFORM_WINDOWS_STORE
 
 #include <wrl/client.h>
 #include <wrl/event.h>
@@ -887,7 +874,6 @@ namespace KlayGE
 		double tmp;
 		IReference<double>* rtmp;
 
-#if (_WIN32_WINNT >= _WIN32_WINNT_WINBLUE)
 		ComPtr<IGeocoordinateWithPoint> coordinate_with_point;
 		TIF(coordinate.As(&coordinate_with_point));
 		ComPtr<IGeopoint> point;
@@ -897,18 +883,6 @@ namespace KlayGE
 		latitude_ = static_cast<float>(geo_position.Latitude);
 		longitude_ = static_cast<float>(geo_position.Longitude);
 		altitude_ = static_cast<float>(geo_position.Altitude);
-#else
-		TIF(coordinate->get_Latitude(&tmp));
-		latitude_ = static_cast<float>(tmp);
-		TIF(coordinate->get_Longitude(&tmp));
-		longitude_ = static_cast<float>(tmp);
-		TIF(coordinate->get_Altitude(&rtmp));
-		if (rtmp)
-		{
-			TIF(rtmp->get_Value(&tmp));
-			altitude_ = static_cast<float>(tmp);
-		}
-#endif
 
 		TIF(coordinate->get_Accuracy(&tmp));
 		location_error_radius_ = static_cast<float>(tmp);
@@ -999,7 +973,6 @@ namespace KlayGE
 		TIF(reading->get_HeadingMagneticNorth(&tmp));
 		magnetic_heading_north_ = static_cast<float>(tmp);
 
-#if (_WIN32_WINNT >= _WIN32_WINNT_WINBLUE)
 		ComPtr<ICompassReadingHeadingAccuracy> reading_with_accuracy;
 		if (SUCCEEDED(reading.As(&reading_with_accuracy)))
 		{
@@ -1011,9 +984,6 @@ namespace KlayGE
 		{
 			magnetometer_accuracy_ = 0;
 		}
-#else
-		magnetometer_accuracy_ = 0;
-#endif
 
 		return S_OK;
 	}

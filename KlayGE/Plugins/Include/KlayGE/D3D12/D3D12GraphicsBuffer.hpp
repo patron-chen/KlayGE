@@ -33,6 +33,8 @@
 
 #pragma once
 
+#include <list>
+
 #include <KlayGE/ElementFormat.hpp>
 #include <KlayGE/GraphicsBuffer.hpp>
 #include <KlayGE/D3D12/D3D12Typedefs.hpp>
@@ -71,6 +73,8 @@ namespace KlayGE
 		virtual void CreateHWResource(void const * init_data) override;
 		virtual void DeleteHWResource() override;
 
+		void UpdateSubresource(uint32_t offset, uint32_t size, void const * data) override;
+
 		uint32_t CounterOffset() const
 		{
 			return counter_offset_;
@@ -78,12 +82,15 @@ namespace KlayGE
 
 		bool UpdateResourceBarrier(D3D12_RESOURCE_BARRIER& barrier, D3D12_RESOURCE_STATES target_state);
 
-	private:
+		void ResetBufferPool();
 
+	private:
 		void* Map(BufferAccess ba);
 		void Unmap();
 
 	private:
+		std::vector<ID3D12ResourcePtr> buffer_pool_;
+		size_t next_free_index_;
 		ID3D12ResourcePtr buffer_;
 		ID3D12ResourcePtr buffer_counter_upload_;
 		D3D12ShaderResourceViewSimulationPtr d3d_sr_view_;

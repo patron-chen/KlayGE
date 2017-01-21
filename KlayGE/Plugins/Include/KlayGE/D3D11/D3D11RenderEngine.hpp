@@ -25,9 +25,7 @@
 #include <KFL/Color.hpp>
 
 #include <vector>
-#include <set>
 #include <map>
-#include <unordered_map>
 
 #include <KlayGE/RenderEngine.hpp>
 #include <KlayGE/ShaderObject.hpp>
@@ -61,12 +59,14 @@ namespace KlayGE
 		IDXGIFactory2* DXGIFactory2() const;
 		IDXGIFactory3* DXGIFactory3() const;
 		IDXGIFactory4* DXGIFactory4() const;
+		IDXGIFactory5* DXGIFactory5() const;
 		uint8_t DXGISubVer() const;
 
 		ID3D11Device* D3DDevice() const;
 		ID3D11Device1* D3DDevice1() const;
 		ID3D11Device2* D3DDevice2() const;
 		ID3D11Device3* D3DDevice3() const;
+		ID3D11Device4* D3DDevice4() const;
 		ID3D11DeviceContext* D3DDeviceImmContext() const;
 		ID3D11DeviceContext1* D3DDeviceImmContext1() const;
 		ID3D11DeviceContext2* D3DDeviceImmContext2() const;
@@ -131,11 +131,16 @@ namespace KlayGE
 		void SetSamplers(ShaderObject::ShaderType st, std::vector<ID3D11SamplerState*> const & samplers);
 		void SetConstantBuffers(ShaderObject::ShaderType st, std::vector<ID3D11Buffer*> const & cbs);
 		void RSSetViewports(UINT NumViewports, D3D11_VIEWPORT const * pViewports);
+		void OMSetRenderTargets(UINT num_rtvs, ID3D11RenderTargetView* const * rtvs, ID3D11DepthStencilView* dsv);
+		void OMSetRenderTargetsAndUnorderedAccessViews(UINT num_rtvs, ID3D11RenderTargetView* const * rtvs,
+			ID3D11DepthStencilView* dsv, 
+			UINT uav_start_slot, UINT num_uavs, ID3D11UnorderedAccessView* const * uavs, UINT const * uav_init_counts);
+		void CSSetUnorderedAccessViews(UINT start_slot, UINT num_uavs, ID3D11UnorderedAccessView* const * uavs,
+			UINT const * uav_init_counts);
 		
 		void ResetRenderStates();
 		void DetachSRV(void* rtv_src, uint32_t rt_first_subres, uint32_t rt_num_subres);
-
-		ID3D11InputLayoutPtr const & CreateD3D11InputLayout(std::vector<D3D11_INPUT_ELEMENT_DESC> const & elems, size_t signature, std::vector<uint8_t> const & vs_code);
+		void InvalidRTVCache();
 
 		HRESULT D3D11CreateDevice(IDXGIAdapter* pAdapter,
 								D3D_DRIVER_TYPE DriverType, HMODULE Software, UINT Flags,
@@ -146,9 +151,10 @@ namespace KlayGE
 		virtual void DoCreateRenderWindow(std::string const & name, RenderSettings const & settings) override;
 		virtual void DoBindFrameBuffer(FrameBufferPtr const & fb) override;
 		virtual void DoBindSOBuffers(RenderLayoutPtr const & rl) override;
-		virtual void DoRender(RenderTechnique const & tech, RenderLayout const & rl) override;
-		virtual void DoDispatch(RenderTechnique const & tech, uint32_t tgx, uint32_t tgy, uint32_t tgz) override;
-		virtual void DoDispatchIndirect(RenderTechnique const & tech,
+		virtual void DoRender(RenderEffect const & effect, RenderTechnique const & tech, RenderLayout const & rl) override;
+		virtual void DoDispatch(RenderEffect const & effect, RenderTechnique const & tech,
+			uint32_t tgx, uint32_t tgy, uint32_t tgz) override;
+		virtual void DoDispatchIndirect(RenderEffect const & effect, RenderTechnique const & tech,
 			GraphicsBufferPtr const & buff_args, uint32_t offset) override;
 		virtual void DoResize(uint32_t width, uint32_t height) override;
 		virtual void DoDestroy() override;
@@ -166,10 +172,12 @@ namespace KlayGE
 
 		virtual void CheckConfig(RenderSettings& settings) override;
 
-	private:
 		D3D11AdapterList const & D3DAdapters() const;
-		D3D11AdapterPtr const & ActiveAdapter() const;
+		D3D11Adapter& ActiveAdapter() const;
 
+		static void CALLBACK OnDeviceLost(PTP_CALLBACK_INSTANCE instance, PVOID context, PTP_WAIT wait, TP_WAIT_RESULT wait_result);
+
+	private:
 		typedef HRESULT(WINAPI *CreateDXGIFactory1Func)(REFIID riid, void** ppFactory);
 		typedef HRESULT(WINAPI *D3D11CreateDeviceFunc)(IDXGIAdapter* pAdapter,
 			D3D_DRIVER_TYPE DriverType, HMODULE Software, UINT Flags,
@@ -186,12 +194,14 @@ namespace KlayGE
 		IDXGIFactory2Ptr gi_factory_2_;
 		IDXGIFactory3Ptr gi_factory_3_;
 		IDXGIFactory4Ptr gi_factory_4_;
+		IDXGIFactory5Ptr gi_factory_5_;
 		uint8_t dxgi_sub_ver_;
 		
 		ID3D11DevicePtr  d3d_device_;
 		ID3D11Device1Ptr d3d_device_1_;
 		ID3D11Device2Ptr d3d_device_2_;
 		ID3D11Device3Ptr d3d_device_3_;
+		ID3D11Device4Ptr d3d_device_4_;
 		ID3D11DeviceContextPtr  d3d_imm_ctx_;
 		ID3D11DeviceContext1Ptr d3d_imm_ctx_1_;
 		ID3D11DeviceContext2Ptr d3d_imm_ctx_2_;
@@ -229,11 +239,12 @@ namespace KlayGE
 		std::array<std::vector<ID3D11ShaderResourceView*>, ShaderObject::ST_NumShaderTypes> shader_srv_ptr_cache_;
 		std::array<std::vector<ID3D11SamplerState*>, ShaderObject::ST_NumShaderTypes> shader_sampler_ptr_cache_;
 		std::array<std::vector<ID3D11Buffer*>, ShaderObject::ST_NumShaderTypes> shader_cb_ptr_cache_;
-		std::array<std::vector<ID3D11ShaderResourceView*>, ShaderObject::ST_NumShaderTypes> shader_srv_cache_;
-		std::array<std::vector<ID3D11SamplerState*>, ShaderObject::ST_NumShaderTypes> shader_sampler_cache_;
-		std::array<std::vector<ID3D11Buffer*>, ShaderObject::ST_NumShaderTypes> shader_cb_cache_;
-
-		std::unordered_map<size_t, ID3D11InputLayoutPtr> input_layout_bank_;
+		std::vector<ID3D11UnorderedAccessView*> render_uav_ptr_cache_;
+		std::vector<uint32_t> render_uav_init_count_cache_;
+		std::vector<ID3D11UnorderedAccessView*> compute_uav_ptr_cache_;
+		std::vector<uint32_t> compute_uav_init_count_cache_;
+		std::vector<ID3D11RenderTargetView*> rtv_ptr_cache_;
+		ID3D11DepthStencilView* dsv_ptr_cache_;
 
 		char const * vs_profile_;
 		char const * ps_profile_;
@@ -254,12 +265,16 @@ namespace KlayGE
 		FrameBufferPtr stereo_nv_3d_vision_fb_;
 		TexturePtr stereo_nv_3d_vision_tex_;
 
-		std::set<ElementFormat> vertex_format_;
-		std::set<ElementFormat> texture_format_;
+		std::vector<ElementFormat> vertex_format_;
+		std::vector<ElementFormat> texture_format_;
 		std::map<ElementFormat, std::vector<std::pair<uint32_t, uint32_t>>> rendertarget_format_;
 
 		ID3D11QueryPtr timestamp_disjoint_query_;
 		double inv_timestamp_freq_;
+
+		HANDLE device_lost_event_;
+		DWORD  device_lost_reg_cookie_;
+		PTP_WAIT thread_pool_wait_;
 	};
 }
 

@@ -45,7 +45,6 @@ SET(CONTENT_FILES
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/DeferredRenderingDebug.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/Depth.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/GBufferNoSkinning.kfx
-	${KLAYGE_PROJECT_DIR}/media/RenderFX/GBufferSkinning64.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/GBufferSkinning128.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/Fog.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/Font.kfx
@@ -53,7 +52,6 @@ SET(CONTENT_FILES
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/LensFlare.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/LightShaft.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/LightSourceProxy.kfx
-	${KLAYGE_PROJECT_DIR}/media/RenderFX/LightIndexedDeferredRendering4.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/LightIndexedDeferredRendering32.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/MultiRes.kfx
 	${KLAYGE_PROJECT_DIR}/media/RenderFX/Particle.kfx
@@ -86,7 +84,7 @@ SET(CONTENT_FILES
 	${KLAYGE_PROJECT_DIR}/Samples/media/Common/dino50.meshml.model_bin
 )
 
-IF(KLAYGE_PLATFORM_WINDOWS_RUNTIME)
+IF(KLAYGE_PLATFORM_WINDOWS_STORE)
 	SET(PACKAGE_GUID "034D4D85-760C-4044-B018-9747A3F9769B")
 ENDIF()
 

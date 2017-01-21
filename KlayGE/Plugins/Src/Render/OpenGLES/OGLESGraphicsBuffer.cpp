@@ -20,14 +20,15 @@
 #include <algorithm>
 
 #include <KlayGE/OpenGLES/OGLESRenderEngine.hpp>
+#include <KlayGE/OpenGLES/OGLESMapping.hpp>
 #include <KlayGE/OpenGLES/OGLESGraphicsBuffer.hpp>
 
 namespace KlayGE
 {
 	OGLESGraphicsBuffer::OGLESGraphicsBuffer(BufferUsage usage, uint32_t access_hint, GLenum target,
-				uint32_t size_in_byte)
+				uint32_t size_in_byte, ElementFormat fmt)
 			: GraphicsBuffer(usage, access_hint, size_in_byte),
-				vb_(0), target_(target)
+				vb_(0), tex_(0), target_(target), fmt_as_shader_res_(fmt)
 	{
 		BOOST_ASSERT((GL_ARRAY_BUFFER == target) || (GL_ELEMENT_ARRAY_BUFFER == target)
 			|| (GL_UNIFORM_BUFFER == target));
@@ -58,10 +59,46 @@ namespace KlayGE
 		{
 			buf_data_.resize(size_in_byte_);
 		}
+
+		if ((access_hint_ & EAH_GPU_Read) && (fmt_as_shader_res_ != EF_Unknown))
+		{
+			GLint internal_fmt;
+			GLenum gl_fmt;
+			GLenum gl_type;
+			OGLESMapping::MappingFormat(internal_fmt, gl_fmt, gl_type, fmt_as_shader_res_);
+
+			glGenTextures(1, &tex_);
+			// TODO: It could affect the texture binding cache in OGLESRenderEngine
+			if (glloader_GLES_VERSION_3_2())
+			{
+				glBindTexture(GL_TEXTURE_BUFFER, tex_);
+				glTexBuffer(GL_TEXTURE_BUFFER, internal_fmt, vb_);
+				glBindTexture(GL_TEXTURE_BUFFER, 0);
+			}
+			else if (glloader_GLES_OES_texture_buffer())
+			{
+				glBindTexture(GL_TEXTURE_BUFFER_OES, tex_);
+				glTexBufferOES(GL_TEXTURE_BUFFER_OES, internal_fmt, vb_);
+				glBindTexture(GL_TEXTURE_BUFFER_OES, 0);
+			}
+			else if (glloader_GLES_EXT_texture_buffer())
+			{
+				glBindTexture(GL_TEXTURE_BUFFER_EXT, tex_);
+				glTexBufferEXT(GL_TEXTURE_BUFFER_EXT, internal_fmt, vb_);
+				glBindTexture(GL_TEXTURE_BUFFER_EXT, 0);
+			}
+		}
 	}
 
 	void OGLESGraphicsBuffer::DeleteHWResource()
 	{
+		if (tex_ != 0)
+		{
+			glDeleteTextures(1, &tex_);
+
+			tex_ = 0;
+		}
+
 		if (vb_ != 0)
 		{
 			if (Context::Instance().RenderFactoryValid())
@@ -85,7 +122,6 @@ namespace KlayGE
 		switch (ba)
 		{
 		case BA_Write_Only:
-			if (glloader_GLES_VERSION_3_0())
 			{
 				OGLESRenderEngine& re = *checked_cast<OGLESRenderEngine*>(&Context::Instance().RenderFactoryInstance().RenderEngineInstance());
 				re.BindBuffer(target_, vb_);
@@ -95,16 +131,6 @@ namespace KlayGE
 					flags |= GL_MAP_INVALIDATE_BUFFER_BIT;
 				}
 				return glMapBufferRange(target_, 0, static_cast<GLsizeiptr>(size_in_byte_), flags);
-			}
-			else if (glloader_GLES_OES_mapbuffer())
-			{
-				OGLESRenderEngine& re = *checked_cast<OGLESRenderEngine*>(&Context::Instance().RenderFactoryInstance().RenderEngineInstance());
-				re.BindBuffer(target_, vb_);
-				return glMapBufferOES(target_, GL_WRITE_ONLY_OES);
-			}
-			else
-			{
-				return &buf_data_[0];
 			}
 
 		default:
@@ -121,18 +147,7 @@ namespace KlayGE
 			{
 				OGLESRenderEngine& re = *checked_cast<OGLESRenderEngine*>(&Context::Instance().RenderFactoryInstance().RenderEngineInstance());
 				re.BindBuffer(target_, vb_);
-				if (glloader_GLES_VERSION_3_0())
-				{
-					glUnmapBuffer(target_);
-				}
-				else if (glloader_GLES_OES_mapbuffer())
-				{
-					glUnmapBufferOES(target_);
-				}
-				else
-				{
-					glBufferSubData(target_, 0, static_cast<GLsizeiptr>(size_in_byte_), &buf_data_[0]);
-				}
+				glUnmapBuffer(target_);
 			}
 			break;
 			
@@ -153,5 +168,12 @@ namespace KlayGE
 		GraphicsBuffer::Mapper rhs_mapper(rhs, BA_Write_Only);
 		std::copy(lhs_mapper.Pointer<uint8_t>(), lhs_mapper.Pointer<uint8_t>() + size_in_byte_,
 			rhs_mapper.Pointer<uint8_t>());
+	}
+
+	void OGLESGraphicsBuffer::UpdateSubresource(uint32_t offset, uint32_t size, void const * data)
+	{
+		OGLESRenderEngine& re = *checked_cast<OGLESRenderEngine*>(&Context::Instance().RenderFactoryInstance().RenderEngineInstance());
+		re.BindBuffer(target_, vb_);
+		glBufferSubData(target_, offset, size, data);
 	}
 }

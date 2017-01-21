@@ -51,7 +51,7 @@ namespace KlayGE
 	//			DoUpdate()				- 刷新场景
 	//			DoUpdateOverlay()		- 刷新Overlay物体
 	/////////////////////////////////////////////////////////////////////////////////
-	class KLAYGE_CORE_API App3DFramework
+	class KLAYGE_CORE_API App3DFramework : boost::noncopyable
 	{
 		friend class SceneManager;
 
@@ -67,7 +67,8 @@ namespace KlayGE
 			URV_TransparencyFrontOnly = 1UL << 6,
 			URV_ReflectionOnly = 1UL << 7,
 			URV_SpecialShadingOnly = 1UL << 8,
-			URV_SimpleForwardOnly = 1UL << 9
+			URV_SimpleForwardOnly = 1UL << 9,
+			URV_VDMOnly = 1UL << 10
 		};
 
 	public:
@@ -93,10 +94,7 @@ namespace KlayGE
 			return main_wnd_;
 		}
 
-		virtual bool ConfirmDevice() const
-		{
-			return true;
-		}
+		virtual bool ConfirmDevice() const;
 
 		Camera const & ActiveCamera() const;
 		Camera& ActiveCamera();
@@ -152,7 +150,7 @@ namespace KlayGE
 
 		WindowPtr main_wnd_;
 
-#if defined KLAYGE_PLATFORM_WINDOWS_RUNTIME
+#if defined KLAYGE_PLATFORM_WINDOWS_STORE
 	public:
 		void MetroCreate();
 		void MetroRun();

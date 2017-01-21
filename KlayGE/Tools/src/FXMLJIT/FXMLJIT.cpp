@@ -32,46 +32,18 @@
 #include <KlayGE/Context.hpp>
 #include <KlayGE/ResLoader.hpp>
 #include <KFL/XMLDom.hpp>
+#include <KFL/CXX17/filesystem.hpp>
 
 #include <iostream>
 
 #include <boost/algorithm/string/case_conv.hpp>
-
-#if defined(KLAYGE_TS_LIBRARY_FILESYSTEM_V3_SUPPORT)
-	#include <experimental/filesystem>
-#elif defined(KLAYGE_TS_LIBRARY_FILESYSTEM_V2_SUPPORT)
-	#include <filesystem>
-	namespace std
-	{
-		namespace experimental
-		{
-			namespace filesystem = std::tr2::sys;
-		}
-	}
-#else
-	#if defined(KLAYGE_COMPILER_GCC)
-		#pragma GCC diagnostic push
-		#pragma GCC diagnostic ignored "-Wdeprecated-declarations" // Ignore auto_ptr declaration
-	#endif
-	#include <boost/filesystem.hpp>
-	#if defined(KLAYGE_COMPILER_GCC)
-		#pragma GCC diagnostic pop
-	#endif
-	namespace std
-	{
-		namespace experimental
-		{
-			namespace filesystem = boost::filesystem;
-		}
-	}
-#endif
 
 #include "OfflineRenderEffect.hpp"
 
 using namespace std;
 using namespace KlayGE;
 
-uint32_t const KFX_VERSION = 0x0107;
+uint32_t const KFX_VERSION = 0x0110;
 
 int RetrieveAttrValue(XMLNodePtr node, std::string const & attr_name, int default_value)
 {
@@ -148,6 +120,7 @@ Offline::OfflineRenderDeviceCaps LoadPlatformConfig(std::string const & platform
 	caps.shader_texture_lod_support = RetrieveNodeValue(root, "shader_texture_lod_support", 0) ? true : false;
 	caps.fp_color_support = RetrieveNodeValue(root, "fp_color_support", 0) ? true : false;
 	caps.pack_to_rgba_required = RetrieveNodeValue(root, "pack_to_rgba_required", 0) ? true : false;
+	caps.render_to_texture_array_support = RetrieveNodeValue(root, "render_to_texture_array_support", 0) ? true : false;
 
 	caps.gs_support = RetrieveNodeValue(root, "gs_support", 0) ? true : false;
 	caps.cs_support = RetrieveNodeValue(root, "cs_support", 0) ? true : false;
@@ -164,8 +137,6 @@ Offline::OfflineRenderDeviceCaps LoadPlatformConfig(std::string const & platform
 
 int main(int argc, char* argv[])
 {
-	using namespace std::experimental;
-
 	if (argc < 2)
 	{
 		cout << "Usage: FXMLJIT pc_dx11|pc_dx10|pc_dx9|win_tegra3|pc_gl4|pc_gl3|pc_gl2|android_tegra3|ios xxx.fxml [target folder]" << endl;
@@ -230,11 +201,7 @@ int main(int argc, char* argv[])
 
 	std::string fxml_name(argv[2]);
 	filesystem::path fxml_path(fxml_name);
-#ifdef KLAYGE_TS_LIBRARY_FILESYSTEM_V2_SUPPORT
-	std::string const base_name = fxml_path.stem();
-#else
 	std::string const base_name = fxml_path.stem().string();
-#endif
 	filesystem::path fxml_directory = fxml_path.parent_path();
 	ResLoader::Instance().AddPath(fxml_directory.string());
 
@@ -287,7 +254,7 @@ int main(int argc, char* argv[])
 	if (!target_folder.empty())
 	{
 		filesystem::copy_file(kfx_path, target_folder / kfx_name,
-#ifdef KLAYGE_TS_LIBRARY_FILESYSTEM_V3_SUPPORT
+#if defined(KLAYGE_CXX17_LIBRARY_FILESYSTEM_SUPPORT) || defined(KLAYGE_TS_LIBRARY_FILESYSTEM_SUPPORT)
 			filesystem::copy_options::overwrite_existing);
 #else
 			filesystem::copy_option::overwrite_if_exists);

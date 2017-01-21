@@ -16,6 +16,9 @@
 #include <KlayGE/RenderFactory.hpp>
 #include <KlayGE/Context.hpp>
 #include <KlayGE/RenderEngine.hpp>
+
+#include <system_error>
+
 #include <KlayGE/FrameBuffer.hpp>
 
 namespace KlayGE
@@ -99,7 +102,7 @@ namespace KlayGE
 				RenderEngine& re = Context::Instance().RenderFactoryInstance().RenderEngineInstance();
 				if (att >= static_cast<uint32_t>(ATT_Color0 + re.DeviceCaps().max_simultaneous_rts))
 				{
-					THR(errc::function_not_supported);
+					THR(std::errc::function_not_supported);
 				}
 
 				uint32_t clr_id = att - ATT_Color0;
@@ -159,11 +162,11 @@ namespace KlayGE
 				RenderEngine& re = Context::Instance().RenderFactoryInstance().RenderEngineInstance();
 				if (att >= static_cast<uint32_t>(ATT_Color0 + re.DeviceCaps().max_simultaneous_rts))
 				{
-					THR(errc::function_not_supported);
+					THR(std::errc::function_not_supported);
 				}
 
 				uint32_t clr_id = att - ATT_Color0;
-				if ((clr_views_.size() < clr_id + 1) && clr_views_[clr_id])
+				if ((clr_id < clr_views_.size()) && clr_views_[clr_id])
 				{
 					clr_views_[clr_id]->OnDetached(*this, att);
 					clr_views_[clr_id].reset();
@@ -185,13 +188,13 @@ namespace KlayGE
 		default:
 			{
 				uint32_t clr_id = att - ATT_Color0;
-				if (clr_views_.size() < clr_id + 1)
+				if (clr_id < clr_views_.size())
 				{
-					return RenderViewPtr();
+					return clr_views_[clr_id];
 				}
 				else
 				{
-					return clr_views_[clr_id];
+					return RenderViewPtr();
 				}
 			}
 		}
@@ -202,7 +205,7 @@ namespace KlayGE
 		RenderEngine& re = Context::Instance().RenderFactoryInstance().RenderEngineInstance();
 		if (att >= static_cast<uint32_t>(re.DeviceCaps().max_simultaneous_uavs))
 		{
-			THR(errc::function_not_supported);
+			THR(std::errc::function_not_supported);
 		}
 
 		if ((att < ua_views_.size()) && ua_views_[att])
@@ -229,10 +232,10 @@ namespace KlayGE
 		RenderEngine& re = Context::Instance().RenderFactoryInstance().RenderEngineInstance();
 		if (att >= static_cast<uint32_t>(ATT_Color0 + re.DeviceCaps().max_simultaneous_rts))
 		{
-			THR(errc::function_not_supported);
+			THR(std::errc::function_not_supported);
 		}
 
-		if ((ua_views_.size() < att + 1) && ua_views_[att])
+		if ((att < ua_views_.size()) && ua_views_[att])
 		{
 			ua_views_[att]->OnDetached(*this, att);
 			ua_views_[att].reset();
@@ -243,13 +246,13 @@ namespace KlayGE
 
 	UnorderedAccessViewPtr FrameBuffer::AttachedUAV(uint32_t att) const
 	{
-		if (ua_views_.size() < att + 1)
+		if (att < ua_views_.size())
 		{
-			return UnorderedAccessViewPtr();
+			return ua_views_[att];
 		}
 		else
 		{
-			return ua_views_[att];
+			return UnorderedAccessViewPtr();
 		}
 	}
 

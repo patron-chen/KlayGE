@@ -35,6 +35,7 @@
 #include <KFL/Math.hpp>
 #include <KFL/COMPtr.hpp>
 #include <KFL/ResIdentifier.hpp>
+#include <KFL/Hash.hpp>
 
 #include <string>
 #include <map>
@@ -42,7 +43,6 @@
 #include <sstream>
 #include <cstring>
 #include <boost/assert.hpp>
-#include <boost/functional/hash.hpp>
 
 #ifdef KLAYGE_PLATFORM_WINDOWS
 
@@ -112,9 +112,6 @@ namespace KlayGE
 				ds_profile_ = "ds_5_0";
 				break;
 
-			case D3D_FEATURE_LEVEL_10_1:
-			case D3D_FEATURE_LEVEL_10_0:
-			case D3D_FEATURE_LEVEL_9_3:
 			default:
 				BOOST_ASSERT(false);
 				break;
@@ -319,13 +316,13 @@ namespace KlayGE
 				macros.emplace_back("KLAYGE_D3D12", "1");
 				macros.emplace_back("KLAYGE_FRAG_DEPTH", "1");
 
-				uint32_t flags = 0;
+				uint32_t flags = D3DCOMPILE_ENABLE_STRICTNESS;
 #if !defined(KLAYGE_DEBUG)
 				flags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
 #endif
-			*code = this->CompileToDXBC(type, effect, tech, pass, macros, sd.func_name.c_str(), shader_profile, flags);
+				*code = this->CompileToDXBC(type, effect, tech, pass, macros, sd.func_name.c_str(), shader_profile, flags);
 
-			if (!code->empty())
+				if (!code->empty())
 				{
 					ID3D12ShaderReflection* reflection;
 					this->ReflectDXBC(*code, reinterpret_cast<void**>(&reflection));
@@ -449,18 +446,18 @@ namespace KlayGE
 							{
 								reflection->GetInputParameterDesc(i, &signature);
 
-								size_t seed = boost::hash_range(signature.SemanticName, signature.SemanticName + strlen(signature.SemanticName));
-								boost::hash_combine(seed, signature.SemanticIndex);
-								boost::hash_combine(seed, signature.Register);
-								boost::hash_combine(seed, static_cast<uint32_t>(signature.SystemValueType));
-								boost::hash_combine(seed, static_cast<uint32_t>(signature.ComponentType));
-								boost::hash_combine(seed, signature.Mask);
-								boost::hash_combine(seed, signature.ReadWriteMask);
-								boost::hash_combine(seed, signature.Stream);
-								boost::hash_combine(seed, signature.MinPrecision);
+								size_t seed = RT_HASH(signature.SemanticName);
+								HashCombine(seed, signature.SemanticIndex);
+								HashCombine(seed, signature.Register);
+								HashCombine(seed, static_cast<uint32_t>(signature.SystemValueType));
+								HashCombine(seed, static_cast<uint32_t>(signature.ComponentType));
+								HashCombine(seed, signature.Mask);
+								HashCombine(seed, signature.ReadWriteMask);
+								HashCombine(seed, signature.Stream);
+								HashCombine(seed, signature.MinPrecision);
 
 								size_t sig = vs_signature_;
-								boost::hash_combine(sig, seed);
+								HashCombine(sig, seed);
 								vs_signature_ = static_cast<uint32_t>(sig);
 							}
 						}

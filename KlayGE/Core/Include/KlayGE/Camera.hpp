@@ -29,7 +29,7 @@ namespace KlayGE
 {
 	// 3DÉãÏñ»ú²Ù×÷
 	//////////////////////////////////////////////////////////////////////////////////
-	class KLAYGE_CORE_API Camera : public std::enable_shared_from_this<Camera>
+	class KLAYGE_CORE_API Camera : boost::noncopyable, public std::enable_shared_from_this<Camera>
 	{
 	public:
 		Camera();
@@ -62,6 +62,7 @@ namespace KlayGE
 		void ViewParams(float3 const & eye_pos, float3 const & look_at, float3 const & up_vec);
 		void ProjParams(float fov, float aspect, float near_plane, float far_plane);
 		void ProjOrthoParams(float w, float h, float near_plane, float far_plane);
+		void ProjOrthoOffCenterParams(float left, float top, float right, float bottom, float near_plane, float far_plane);
 
 		void BindUpdateFunc(std::function<void(Camera&, float, float)> const & update_func);
 

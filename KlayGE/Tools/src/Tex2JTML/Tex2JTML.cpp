@@ -7,50 +7,12 @@
 #include <KlayGE/App3D.hpp>
 #include <KlayGE/RenderFactory.hpp>
 #include <KlayGE/ResLoader.hpp>
+#include <KFL/CXX17/filesystem.hpp>
 
 #include <iostream>
 #include <fstream>
 #include <vector>
-
-#if defined(KLAYGE_TS_LIBRARY_FILESYSTEM_V3_SUPPORT)
-	#include <experimental/filesystem>
-#elif defined(KLAYGE_TS_LIBRARY_FILESYSTEM_V2_SUPPORT)
-	#include <filesystem>
-	namespace std
-	{
-		namespace experimental
-		{
-			namespace filesystem = std::tr2::sys;
-		}
-	}
-#else
-	#if defined(KLAYGE_COMPILER_GCC)
-		#pragma GCC diagnostic push
-		#pragma GCC diagnostic ignored "-Wdeprecated-declarations" // Ignore auto_ptr declaration
-	#endif
-	#include <boost/filesystem.hpp>
-	#if defined(KLAYGE_COMPILER_GCC)
-		#pragma GCC diagnostic pop
-	#endif
-	namespace std
-	{
-		namespace experimental
-		{
-			namespace filesystem = boost::filesystem;
-		}
-	}
-#endif
-#ifdef KLAYGE_CXX11_LIBRARY_REGEX_SUPPORT
-	#include <regex>
-#else
-	#include <boost/regex.hpp>
-	namespace std
-	{
-		using boost::regex;
-		using boost::regex_match;
-		using boost::smatch;
-	}
-#endif
+#include <regex>
 
 #if defined(KLAYGE_COMPILER_GCC)
 #pragma GCC diagnostic push
@@ -74,7 +36,6 @@
 
 using namespace std;
 using namespace KlayGE;
-using namespace std::experimental;
 
 struct TextureDesc
 {
@@ -416,11 +377,7 @@ int main(int argc, char* argv[])
 					if (filesystem::is_regular_file(i->status()))
 					{
 						std::smatch what;
-#ifdef KLAYGE_TS_LIBRARY_FILESYSTEM_V2_SUPPORT
-						std::string const name = i->path().filename();
-#else
 						std::string const name = i->path().filename().string();
-#endif
 						if (std::regex_match(name, what, filter))
 						{
 							tex_names.push_back(name);

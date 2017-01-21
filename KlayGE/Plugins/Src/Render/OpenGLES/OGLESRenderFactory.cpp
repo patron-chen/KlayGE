@@ -75,28 +75,21 @@ namespace KlayGE
 	}
 
 	GraphicsBufferPtr OGLESRenderFactory::MakeDelayCreationVertexBuffer(BufferUsage usage, uint32_t access_hint,
-			uint32_t size_in_byte, ElementFormat /*fmt*/)
+			uint32_t size_in_byte, ElementFormat fmt)
 	{
-		return MakeSharedPtr<OGLESGraphicsBuffer>(usage, access_hint, GL_ARRAY_BUFFER, size_in_byte);
+		return MakeSharedPtr<OGLESGraphicsBuffer>(usage, access_hint, GL_ARRAY_BUFFER, size_in_byte, fmt);
 	}
 
 	GraphicsBufferPtr OGLESRenderFactory::MakeDelayCreationIndexBuffer(BufferUsage usage, uint32_t access_hint,
-			uint32_t size_in_byte, ElementFormat /*fmt*/)
+			uint32_t size_in_byte, ElementFormat fmt)
 	{
-		return MakeSharedPtr<OGLESGraphicsBuffer>(usage, access_hint, GL_ELEMENT_ARRAY_BUFFER, size_in_byte);
+		return MakeSharedPtr<OGLESGraphicsBuffer>(usage, access_hint, GL_ELEMENT_ARRAY_BUFFER, size_in_byte, fmt);
 	}
 
 	GraphicsBufferPtr OGLESRenderFactory::MakeDelayCreationConstantBuffer(BufferUsage usage, uint32_t access_hint,
 			uint32_t size_in_byte, ElementFormat fmt)
 	{
-		KFL_UNUSED(fmt);
-
-		GraphicsBufferPtr ret;
-		if (glloader_GLES_VERSION_3_0())
-		{
-			ret = MakeSharedPtr<OGLESGraphicsBuffer>(usage, access_hint, GL_UNIFORM_BUFFER, size_in_byte);
-		}
-		return ret;
+		return MakeSharedPtr<OGLESGraphicsBuffer>(usage, access_hint, GL_UNIFORM_BUFFER, size_in_byte, fmt);
 	}
 
 	QueryPtr OGLESRenderFactory::MakeOcclusionQuery()
@@ -106,14 +99,7 @@ namespace KlayGE
 
 	QueryPtr OGLESRenderFactory::MakeConditionalRender()
 	{
-		if (glloader_GLES_VERSION_3_0() || glloader_GLES_EXT_occlusion_query_boolean())
-		{
-			return MakeSharedPtr<OGLESConditionalRender>();
-		}
-		else
-		{
-			return QueryPtr();
-		}
+		return MakeSharedPtr<OGLESConditionalRender>();
 	}
 
 	QueryPtr OGLESRenderFactory::MakeTimerQuery()
@@ -128,24 +114,24 @@ namespace KlayGE
 		}
 	}
 
+	QueryPtr OGLESRenderFactory::MakeSOStatisticsQuery()
+	{
+		return MakeSharedPtr<OGLESSOStatisticsQuery>();
+	}
+
 	FencePtr OGLESRenderFactory::MakeFence()
 	{
-		FencePtr ret;
-		if (glloader_GLES_VERSION_3_0())
-		{
-			ret = MakeSharedPtr<OGLESFence>();
-		}
-		return ret;
+		return MakeSharedPtr<OGLESFence>();
 	}
 
-	RenderViewPtr OGLESRenderFactory::Make1DRenderView(Texture& texture, int first_array_index, int /*array_size*/, int level)
+	RenderViewPtr OGLESRenderFactory::Make1DRenderView(Texture& texture, int first_array_index, int array_size, int level)
 	{
-		return MakeSharedPtr<OGLESTexture1DRenderView>(texture, first_array_index, level);
+		return MakeSharedPtr<OGLESTexture1DRenderView>(texture, first_array_index, array_size, level);
 	}
 
-	RenderViewPtr OGLESRenderFactory::Make2DRenderView(Texture& texture, int first_array_index, int /*array_size*/, int level)
+	RenderViewPtr OGLESRenderFactory::Make2DRenderView(Texture& texture, int first_array_index, int array_size, int level)
 	{
-		return MakeSharedPtr<OGLESTexture2DRenderView>(texture, first_array_index, level);
+		return MakeSharedPtr<OGLESTexture2DRenderView>(texture, first_array_index, array_size, level);
 	}
 
 	RenderViewPtr OGLESRenderFactory::Make2DRenderView(Texture& texture, int array_index, Texture::CubeFaces face, int level)
@@ -158,9 +144,9 @@ namespace KlayGE
 		return MakeSharedPtr<OGLESTexture3DRenderView>(texture, array_index, slice, level);
 	}
 	
-	RenderViewPtr OGLESRenderFactory::MakeCubeRenderView(Texture& /*texture*/, int /*array_index*/, int /*level*/)
+	RenderViewPtr OGLESRenderFactory::MakeCubeRenderView(Texture& texture, int array_index, int level)
 	{
-		return RenderViewPtr();
+		return MakeSharedPtr<OGLESTextureCubeRenderView>(texture, array_index, level);
 	}
 
 	RenderViewPtr OGLESRenderFactory::Make3DRenderView(Texture& /*texture*/, int /*array_index*/, uint32_t /*first_slice*/, uint32_t /*num_slices*/, int /*level*/)
@@ -183,9 +169,9 @@ namespace KlayGE
 		return this->Make2DDepthStencilRenderView(texture, first_array_index, array_size, level);
 	}
 
-	RenderViewPtr OGLESRenderFactory::Make2DDepthStencilRenderView(Texture& texture, int first_array_index, int /*array_size*/, int level)
+	RenderViewPtr OGLESRenderFactory::Make2DDepthStencilRenderView(Texture& texture, int first_array_index, int array_size, int level)
 	{
-		return MakeSharedPtr<OGLESDepthStencilRenderView>(texture, first_array_index, level);
+		return MakeSharedPtr<OGLESDepthStencilRenderView>(texture, first_array_index, array_size, level);
 	}
 
 	RenderViewPtr OGLESRenderFactory::Make2DDepthStencilRenderView(Texture& texture, int array_index, Texture::CubeFaces face, int level)
@@ -198,9 +184,9 @@ namespace KlayGE
 		return RenderViewPtr();
 	}
 
-	RenderViewPtr OGLESRenderFactory::MakeCubeDepthStencilRenderView(Texture& /*texture*/, int /*array_index*/, int /*level*/)
+	RenderViewPtr OGLESRenderFactory::MakeCubeDepthStencilRenderView(Texture& texture, int array_index, int level)
 	{
-		return RenderViewPtr();
+		return MakeSharedPtr<OGLESDepthStencilRenderView>(texture, array_index, 1, level);
 	}
 
 	RenderViewPtr OGLESRenderFactory::Make3DDepthStencilRenderView(Texture& /*texture*/, int /*array_index*/, uint32_t /*first_slice*/, uint32_t /*num_slices*/, int /*level*/)
@@ -253,19 +239,10 @@ namespace KlayGE
 		return MakeUniquePtr<OGLESRenderEngine>();
 	}
 
-	RasterizerStateObjectPtr OGLESRenderFactory::DoMakeRasterizerStateObject(RasterizerStateDesc const & desc)
+	RenderStateObjectPtr OGLESRenderFactory::DoMakeRenderStateObject(RasterizerStateDesc const & rs_desc, DepthStencilStateDesc const & dss_desc,
+		BlendStateDesc const & bs_desc)
 	{
-		return MakeSharedPtr<OGLESRasterizerStateObject>(desc);
-	}
-
-	DepthStencilStateObjectPtr OGLESRenderFactory::DoMakeDepthStencilStateObject(DepthStencilStateDesc const & desc)
-	{
-		return MakeSharedPtr<OGLESDepthStencilStateObject>(desc);
-	}
-
-	BlendStateObjectPtr OGLESRenderFactory::DoMakeBlendStateObject(BlendStateDesc const & desc)
-	{
-		return MakeSharedPtr<OGLESBlendStateObject>(desc);
+		return MakeSharedPtr<OGLESRenderStateObject>(rs_desc, dss_desc, bs_desc);
 	}
 
 	SamplerStateObjectPtr OGLESRenderFactory::DoMakeSamplerStateObject(SamplerStateDesc const & desc)

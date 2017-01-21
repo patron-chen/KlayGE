@@ -82,7 +82,7 @@
 
 namespace KlayGE
 {
-	class KLAYGE_CORE_API RenderEngine
+	class KLAYGE_CORE_API RenderEngine : boost::noncopyable
 	{
 	public:
 		RenderEngine();
@@ -97,9 +97,10 @@ namespace KlayGE
 
 		virtual void BeginFrame();
 		virtual void BeginPass();
-		void Render(RenderTechnique const & tech, RenderLayout const & rl);
-		void Dispatch(RenderTechnique const & tech, uint32_t tgx, uint32_t tgy, uint32_t tgz);
-		void DispatchIndirect(RenderTechnique const & tech, GraphicsBufferPtr const & buff_args, uint32_t offset);
+		void Render(RenderEffect const & effect, RenderTechnique const & tech, RenderLayout const & rl);
+		void Dispatch(RenderEffect const & effect, RenderTechnique const & tech, uint32_t tgx, uint32_t tgy, uint32_t tgz);
+		void DispatchIndirect(RenderEffect const & effect, RenderTechnique const & tech,
+			GraphicsBufferPtr const & buff_args, uint32_t offset);
 		virtual void EndPass();
 		virtual void EndFrame();
 		virtual void UpdateGPUTimestampsFrequency();
@@ -115,9 +116,7 @@ namespace KlayGE
 		void CreateRenderWindow(std::string const & name, RenderSettings& settings);
 		void DestroyRenderWindow();
 
-		void SetStateObjects(RasterizerStateObjectPtr const & rs_obj,
-			DepthStencilStateObjectPtr const & dss_obj, uint16_t front_stencil_ref, uint16_t back_stencil_ref,
-			BlendStateObjectPtr const & bs_obj, Color const & blend_factor, uint32_t sample_mask);
+		void SetStateObject(RenderStateObjectPtr const & rs_obj);
 
 		void BindFrameBuffer(FrameBufferPtr const & fb);
 		FrameBufferPtr const & CurFrameBuffer() const;
@@ -149,6 +148,10 @@ namespace KlayGE
 		uint32_t NativeShaderVersion() const
 		{
 			return native_shader_version_;
+		}
+		std::string NativeShaderPlatformName() const
+		{
+			return native_shader_platform_name_;
 		}
 
 		void PostProcess(bool skip);
@@ -189,38 +192,18 @@ namespace KlayGE
 			return motion_frames_;
 		}
 
-		RasterizerStateObjectPtr const & CurRSObj() const
+		RenderStateObjectPtr const & CurRenderStateObject() const
 		{
 			return cur_rs_obj_;
-		}
-		DepthStencilStateObjectPtr const & CurDSSObj() const
-		{
-			return cur_dss_obj_;
-		}
-		uint16_t CurFrontStencilRef() const
-		{
-			return cur_front_stencil_ref_;
-		}
-		uint16_t CurBackStencilRef() const
-		{
-			return cur_back_stencil_ref_;
-		}
-		BlendStateObjectPtr const & CurBSObj() const
-		{
-			return cur_bs_obj_;
-		}
-		Color const & CurBlendFactor() const
-		{
-			return cur_blend_factor_;
-		}
-		uint32_t CurSampleMask() const
-		{
-			return cur_sample_mask_;
 		}
 
 		RenderLayoutPtr const & PostProcessRenderLayout() const
 		{
 			return pp_rl_;
+		}
+		RenderLayoutPtr const & VolumetricPostProcessRenderLayout() const
+		{
+			return vpp_rl_;
 		}
 
 		StereoMethod Stereo() const
@@ -272,9 +255,9 @@ namespace KlayGE
 		virtual void DoCreateRenderWindow(std::string const & name, RenderSettings const & settings) = 0;
 		virtual void DoBindFrameBuffer(FrameBufferPtr const & fb) = 0;
 		virtual void DoBindSOBuffers(RenderLayoutPtr const & rl) = 0;
-		virtual void DoRender(RenderTechnique const & tech, RenderLayout const & rl) = 0;
-		virtual void DoDispatch(RenderTechnique const & tech, uint32_t tgx, uint32_t tgy, uint32_t tgz) = 0;
-		virtual void DoDispatchIndirect(RenderTechnique const & tech,
+		virtual void DoRender(RenderEffect const & effect, RenderTechnique const & tech, RenderLayout const & rl) = 0;
+		virtual void DoDispatch(RenderEffect const & effect, RenderTechnique const & tech, uint32_t tgx, uint32_t tgy, uint32_t tgz) = 0;
+		virtual void DoDispatchIndirect(RenderEffect const & effect, RenderTechnique const & tech,
 			GraphicsBufferPtr const & buff_args, uint32_t offset) = 0;
 		virtual void DoResize(uint32_t width, uint32_t height) = 0;
 		virtual void DoDestroy() = 0;
@@ -308,14 +291,8 @@ namespace KlayGE
 
 		RenderDeviceCaps caps_;
 
-		RasterizerStateObjectPtr cur_rs_obj_;
-		RasterizerStateObjectPtr cur_line_rs_obj_;
-		DepthStencilStateObjectPtr cur_dss_obj_;
-		uint16_t cur_front_stencil_ref_;
-		uint16_t cur_back_stencil_ref_;
-		BlendStateObjectPtr cur_bs_obj_;
-		Color cur_blend_factor_;
-		uint32_t cur_sample_mask_;
+		RenderStateObjectPtr cur_rs_obj_;
+		RenderStateObjectPtr cur_line_rs_obj_;
 
 		float default_fov_;
 		float default_render_width_scale_;
@@ -332,6 +309,7 @@ namespace KlayGE
 		float ovr_scale_;
 
 		RenderLayoutPtr pp_rl_;
+		RenderLayoutPtr vpp_rl_;
 
 		PostProcessPtr hdr_pp_;
 		PostProcessPtr skip_hdr_pp_;
@@ -351,6 +329,7 @@ namespace KlayGE
 
 		uint32_t native_shader_fourcc_;
 		uint32_t native_shader_version_;
+		std::string native_shader_platform_name_;
 
 #ifndef KLAYGE_SHIP
 		PerfRangePtr hdr_pp_perf_;

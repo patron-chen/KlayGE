@@ -145,9 +145,10 @@ namespace KlayGE
 		virtual void DoCreateRenderWindow(std::string const & name, RenderSettings const & settings) override;
 		virtual void DoBindFrameBuffer(FrameBufferPtr const & fb) override;
 		virtual void DoBindSOBuffers(RenderLayoutPtr const & rl) override;
-		virtual void DoRender(RenderTechnique const & tech, RenderLayout const & rl) override;
-		virtual void DoDispatch(RenderTechnique const & tech, uint32_t tgx, uint32_t tgy, uint32_t tgz) override;
-		virtual void DoDispatchIndirect(RenderTechnique const & tech,
+		virtual void DoRender(RenderEffect const & effect, RenderTechnique const & tech, RenderLayout const & rl) override;
+		virtual void DoDispatch(RenderEffect const & effect, RenderTechnique const & tech,
+			uint32_t tgx, uint32_t tgy, uint32_t tgz) override;
+		virtual void DoDispatchIndirect(RenderEffect const & effect, RenderTechnique const & tech,
 			GraphicsBufferPtr const & buff_args, uint32_t offset) override;
 		virtual void DoResize(uint32_t width, uint32_t height) override;
 		virtual void DoDestroy() override;
@@ -193,8 +194,6 @@ namespace KlayGE
 
 		RenderLayoutPtr so_rl_;
 		GLenum so_primitive_mode_;
-		std::vector<std::string> so_vars_;
-		std::vector<char const *> so_vars_ptrs_;
 		std::vector<GLuint> so_buffs_;
 
 		GLenum active_tex_unit_;
@@ -205,9 +204,9 @@ namespace KlayGE
 
 		GLuint restart_index_;
 
-		std::set<ElementFormat> vertex_format_;
-		std::set<ElementFormat> texture_format_;
-		std::set<ElementFormat> rendertarget_format_;
+		std::vector<ElementFormat> vertex_format_;
+		std::vector<ElementFormat> texture_format_;
+		std::vector<ElementFormat> rendertarget_format_;
 		uint32_t max_samples_;
 
 		std::map<GLuint, std::map<GLint, int4>> uniformi_cache_;

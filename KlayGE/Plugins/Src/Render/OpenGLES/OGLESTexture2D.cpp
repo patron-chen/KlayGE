@@ -64,23 +64,8 @@ namespace KlayGE
 		tex_data_.resize(array_size_ * num_mip_maps_);
 
 		glBindTexture(target_type_, texture_);
-		if (glloader_GLES_VERSION_3_0())
-		{
-			glTexParameteri(target_type_, GL_TEXTURE_BASE_LEVEL, 0);
-			glTexParameteri(target_type_, GL_TEXTURE_MAX_LEVEL, num_mip_maps_ - 1);
-		}
-		else if (glloader_GLES_APPLE_texture_max_level())
-		{
-			glTexParameteri(target_type_, GL_TEXTURE_MAX_LEVEL_APPLE, num_mip_maps_ - 1);
-		}
-		else
-		{
-			OGLESRenderEngine& re = *checked_cast<OGLESRenderEngine*>(&Context::Instance().RenderFactoryInstance().RenderEngineInstance());
-			if (re.HackForTegra())
-			{
-				glTexParameteri(target_type_, GL_TEXTURE_MAX_LEVEL, num_mip_maps_ - 1);
-			}
-		}
+		glTexParameteri(target_type_, GL_TEXTURE_BASE_LEVEL, 0);
+		glTexParameteri(target_type_, GL_TEXTURE_MAX_LEVEL, num_mip_maps_ - 1);
 	}
 
 	uint32_t OGLESTexture2D::Width(uint32_t level) const
@@ -119,7 +104,7 @@ namespace KlayGE
 		BOOST_ASSERT(type_ == target.Type());
 
 		OGLESRenderEngine& re = *checked_cast<OGLESRenderEngine*>(&Context::Instance().RenderFactoryInstance().RenderEngineInstance());
-		if (glloader_GLES_VERSION_3_0() && ((sample_count_ > 1) && !IsCompressedFormat(format_) && (glloader_GLES_EXT_texture_rg() || (4 == NumComponents(format_)))))
+		if ((sample_count_ > 1) && !IsCompressedFormat(format_) && (glloader_GLES_EXT_texture_rg() || (4 == NumComponents(format_))))
 		{
 			GLuint fbo_src, fbo_dst;
 			re.GetFBOForBlit(fbo_src, fbo_dst);
@@ -164,16 +149,6 @@ namespace KlayGE
 		}
 		else if ((src_width == dst_width) && (src_height == dst_height) && (format_ == target.Format()))
 		{
-			GLint gl_internalFormat;
-			GLenum gl_format;
-			GLenum gl_type;
-			OGLESMapping::MappingFormat(gl_internalFormat, gl_format, gl_type, format_);
-
-			GLint gl_target_internal_format;
-			GLenum gl_target_format;
-			GLenum gl_target_type;
-			OGLESMapping::MappingFormat(gl_target_internal_format, gl_target_format, gl_target_type, target.Format());
-
 			if (IsCompressedFormat(format_))
 			{
 				BOOST_ASSERT((src_width == dst_width) && (src_height == dst_height));
@@ -228,7 +203,7 @@ namespace KlayGE
 		BOOST_ASSERT(TT_Cube == target.Type());
 
 		OGLESRenderEngine& re = *checked_cast<OGLESRenderEngine*>(&Context::Instance().RenderFactoryInstance().RenderEngineInstance());
-		if (glloader_GLES_VERSION_3_0() && ((sample_count_ > 1) && !IsCompressedFormat(format_) && (glloader_GLES_EXT_texture_rg() || (4 == NumComponents(format_)))))
+		if ((sample_count_ > 1) && !IsCompressedFormat(format_) && (glloader_GLES_EXT_texture_rg() || (4 == NumComponents(format_))))
 		{
 			GLuint fbo_src, fbo_dst;
 			re.GetFBOForBlit(fbo_src, fbo_dst);
@@ -498,5 +473,50 @@ namespace KlayGE
 		}
 
 		hw_res_ready_ = true;
+	}
+
+	void OGLESTexture2D::UpdateSubresource2D(uint32_t array_index, uint32_t level,
+		uint32_t x_offset, uint32_t y_offset, uint32_t width, uint32_t height,
+		void const * data, uint32_t row_pitch)
+	{
+		OGLESRenderEngine& re = *checked_cast<OGLESRenderEngine*>(&Context::Instance().RenderFactoryInstance().RenderEngineInstance());
+
+		GLint gl_internalFormat;
+		GLenum gl_format;
+		GLenum gl_type;
+		OGLESMapping::MappingFormat(gl_internalFormat, gl_format, gl_type, format_);
+
+		re.BindTexture(0, target_type_, texture_);
+
+		if (IsCompressedFormat(format_))
+		{
+			GLsizei const image_size = row_pitch * ((height + 3) / 4);
+
+			if (array_size_ > 1)
+			{
+				glCompressedTexSubImage3D(target_type_, level, x_offset, y_offset, array_index,
+					width, height, 1, gl_format, image_size, data);
+			}
+			else
+			{
+				glCompressedTexSubImage2D(target_type_, level, x_offset, y_offset,
+					width, height, gl_format, image_size, data);
+			}
+		}
+		else
+		{
+			glPixelStorei(GL_UNPACK_ROW_LENGTH, row_pitch / NumFormatBytes(format_));
+			if (array_size_ > 1)
+			{
+				glTexSubImage3D(target_type_, level, x_offset, y_offset, array_index, width, height, 1,
+					gl_format, gl_type, data);
+			}
+			else
+			{
+				glTexSubImage2D(target_type_, level, x_offset, y_offset, width, height,
+					gl_format, gl_type, data);
+			}
+			glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+		}
 	}
 }

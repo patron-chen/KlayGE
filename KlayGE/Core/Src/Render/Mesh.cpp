@@ -31,12 +31,13 @@
 #include <KFL/XMLDom.hpp>
 #include <KlayGE/LZMACodec.hpp>
 #include <KlayGE/Light.hpp>
+#include <KlayGE/RenderMaterial.hpp>
+#include <KFL/Hash.hpp>
 
 #include <algorithm>
 #include <fstream>
 #include <sstream>
 #include <cstring>
-#include <boost/functional/hash.hpp>
 
 #include <MeshMLLib/MeshMLLib.hpp>
 
@@ -46,7 +47,7 @@ namespace
 {
 	using namespace KlayGE;
 
-	uint32_t const MODEL_BIN_VERSION = 10;
+	uint32_t const MODEL_BIN_VERSION = 13;
 
 	class RenderModelLoadingDesc : public ResLoadingDesc
 	{
@@ -141,6 +142,8 @@ namespace
 
 		std::shared_ptr<void> MainThreadStage()
 		{
+			std::lock_guard<std::mutex> lock(main_thread_stage_mutex_);
+
 			RenderModelPtr const & model = *model_desc_.model;
 			if (!model || !model->HWResourceReady())
 			{
@@ -151,6 +154,8 @@ namespace
 					model_desc_.model_data->merged_vbs[i]->CreateHWResource(&model_desc_.model_data->merged_buff[i][0]);
 				}
 				model_desc_.model_data->merged_ib->CreateHWResource(&model_desc_.model_data->merged_indices[0]);
+
+				this->AddsSubPath();
 
 				model->BuildModelInfo();
 				for (uint32_t i = 0; i < model->NumSubrenderables(); ++ i)
@@ -227,7 +232,7 @@ namespace
 					mesh->AddIndexStream(rhs_rl.GetIndexStream(), rhs_rl.IndexStreamFormat());
 
 					mesh->NumVertices(rhs_mesh->NumVertices());
-					mesh->NumTriangles(rhs_mesh->NumTriangles());
+					mesh->NumIndices(rhs_mesh->NumIndices());
 					mesh->StartVertexLocation(rhs_mesh->StartVertexLocation());
 					mesh->StartIndexLocation(rhs_mesh->StartIndexLocation());
 				}
@@ -260,6 +265,8 @@ namespace
 
 				model->AssignSubrenderables(meshes.begin(), meshes.end());
 			}
+
+			this->AddsSubPath();
 
 			model->BuildModelInfo();
 			for (uint32_t i = 0; i < model->NumSubrenderables(); ++ i)
@@ -317,7 +324,7 @@ namespace
 				mesh->AddIndexStream(model_desc_.model_data->merged_ib, model_desc_.model_data->all_is_index_16_bit ? EF_R16UI : EF_R32UI);
 
 				mesh->NumVertices(model_desc_.model_data->mesh_num_vertices[mesh_index]);
-				mesh->NumTriangles(model_desc_.model_data->mesh_num_indices[mesh_index] / 3);
+				mesh->NumIndices(model_desc_.model_data->mesh_num_indices[mesh_index]);
 				mesh->StartVertexLocation(model_desc_.model_data->mesh_base_vertices[mesh_index]);
 				mesh->StartIndexLocation(model_desc_.model_data->mesh_start_indices[mesh_index]);
 			}
@@ -345,8 +352,23 @@ namespace
 			model->AssignSubrenderables(meshes.begin(), meshes.end());
 		}
 
+		void AddsSubPath()
+		{
+			std::string sub_path;
+			auto sub_path_loc = model_desc_.res_name.find_last_of('/');
+			if (sub_path_loc != std::string::npos)
+			{
+				sub_path = ResLoader::Instance().Locate(model_desc_.res_name.substr(0, sub_path_loc));
+				if (!sub_path.empty())
+				{
+					ResLoader::Instance().AddPath(sub_path);
+				}
+			}
+		}
+
 	private:
 		ModelDesc model_desc_;
+		std::mutex main_thread_stage_mutex_;
 	};
 }
 
@@ -494,81 +516,36 @@ namespace KlayGE
 
 	void StaticMesh::DoBuildMeshInfo()
 	{
-		opacity_map_enabled_ = false;
-
 		RenderModelPtr model = model_.lock();
 
 		mtl_ = model->GetMaterial(this->MaterialID());
-		for (auto const & texture_slot : mtl_->texture_slots)
+
+		for (size_t i = 0; i < RenderMaterial::TS_NumTextureSlots; ++ i)
 		{
-			TexturePtr tex;
-			if (!ResLoader::Instance().Locate(texture_slot.second).empty())
+			if (!mtl_->tex_names[i].empty())
 			{
-				tex = ASyncLoadTexture(texture_slot.second, EAH_GPU_Read | EAH_Immutable);
-			}
-
-			size_t const slot_type_hash = RT_HASH(texture_slot.first.c_str());
-
-			if ((CT_HASH("Color") == slot_type_hash) || (CT_HASH("Diffuse Color") == slot_type_hash)
-				|| (CT_HASH("Diffuse Color Map") == slot_type_hash))
-			{
-				diffuse_tex_ = tex;
-			}
-			else if ((CT_HASH("Specular Level") == slot_type_hash) || (CT_HASH("Specular Color") == slot_type_hash))
-			{
-				specular_tex_ = tex;
-			}
-			else if ((CT_HASH("Glossiness") == slot_type_hash) || (CT_HASH("Reflection Glossiness Map") == slot_type_hash))
-			{
-				shininess_tex_ = tex;
-			}
-			else if ((CT_HASH("Bump") == slot_type_hash) || (CT_HASH("Bump Map") == slot_type_hash))
-			{
-				normal_tex_ = tex;
-			}
-			else if ((CT_HASH("Height") == slot_type_hash) || (CT_HASH("Height Map") == slot_type_hash))
-			{
-				height_tex_ = tex;
-			}
-			else if (CT_HASH("Self-Illumination") == slot_type_hash)
-			{
-				emit_tex_ = tex;
-			}
-			else if (CT_HASH("Opacity") == slot_type_hash)
-			{
-				ResIdentifierPtr tex_file = ResLoader::Instance().Open(texture_slot.second);
-				if (tex_file)
+				if (!ResLoader::Instance().Locate(mtl_->tex_names[i]).empty())
 				{
-					Texture::TextureType type;
-					uint32_t width, height, depth;
-					uint32_t num_mipmaps;
-					uint32_t array_size;
-					ElementFormat format;
-					uint32_t row_pitch, slice_pitch;
-					GetImageInfo(tex_file, type, width, height, depth, num_mipmaps, array_size, format,
-						row_pitch, slice_pitch);
-
-					opacity_map_enabled_ = true;
-
-					if ((EF_BC1 == format) || (EF_BC1_SRGB == format))
-					{
-						effect_attrs_ |= EA_AlphaTest;
-					}
-					else
-					{
-						effect_attrs_ |= EA_TransparencyBack;
-						effect_attrs_ |= EA_TransparencyFront;
-					}
+					textures_[i] = ASyncLoadTexture(mtl_->tex_names[i], EAH_GPU_Read | EAH_Immutable);
 				}
 			}
 		}
 
-		if (!(effect_attrs_ & EA_AlphaTest) && (mtl_->opacity < 1))
+		if (mtl_->transparent)
 		{
 			effect_attrs_ |= EA_TransparencyBack;
 			effect_attrs_ |= EA_TransparencyFront;
 		}
-		if ((mtl_->emit.x() > 0) || (mtl_->emit.y() > 0) || (mtl_->emit.z() > 0) || emit_tex_
+		if (mtl_->alpha_test > 0)
+		{
+			effect_attrs_ |= EA_AlphaTest;
+		}
+		if (mtl_->sss)
+		{
+			effect_attrs_ |= EA_SSS;
+		}
+
+		if ((mtl_->emissive.x() > 0) || (mtl_->emissive.y() > 0) || (mtl_->emissive.z() > 0) || textures_[RenderMaterial::TS_Emissive]
 			|| (effect_attrs_ & EA_TransparencyBack) || (effect_attrs_ & EA_TransparencyFront)
 			|| (effect_attrs_ & EA_Reflection))
 		{
@@ -1006,7 +983,7 @@ namespace KlayGE
 		std::vector<std::string>& mesh_names, std::vector<int32_t>& mtl_ids,
 		std::vector<AABBox>& pos_bbs, std::vector<AABBox>& tc_bbs,
 		std::vector<uint32_t>& mesh_num_vertices, std::vector<uint32_t>& mesh_base_vertices,
-		std::vector<uint32_t>& mesh_num_triangles, std::vector<uint32_t>& mesh_base_triangles,
+		std::vector<uint32_t>& mesh_num_indices, std::vector<uint32_t>& mesh_base_indices,
 		std::vector<Joint>& joints, std::shared_ptr<AnimationActionsType>& actions,
 		std::shared_ptr<KeyFramesType>& kfs, uint32_t& num_frames, uint32_t& frame_rate,
 		std::vector<std::shared_ptr<AABBKeyFrames>>& frame_pos_bbs)
@@ -1083,82 +1060,70 @@ namespace KlayGE
 			RenderMaterialPtr mtl = MakeSharedPtr<RenderMaterial>();
 			mtls[mtl_index] = mtl;
 
-			uint8_t rgb[3];
-			float specular_level;
-			decoded->read(&rgb[0], sizeof(uint8_t));
-			decoded->read(&rgb[1], sizeof(uint8_t));
-			decoded->read(&rgb[2], sizeof(uint8_t));
-			mtl->ambient.x() = rgb[0] / 255.0f;
-			mtl->ambient.y() = rgb[1] / 255.0f;
-			mtl->ambient.z() = rgb[2] / 255.0f;
-			decoded->read(&rgb[0], sizeof(uint8_t));
-			decoded->read(&rgb[1], sizeof(uint8_t));
-			decoded->read(&rgb[2], sizeof(uint8_t));
-			mtl->diffuse.x() = rgb[0] / 255.0f;
-			mtl->diffuse.y() = rgb[1] / 255.0f;
-			mtl->diffuse.z() = rgb[2] / 255.0f;
-			decoded->read(&rgb[0], sizeof(uint8_t));
-			decoded->read(&rgb[1], sizeof(uint8_t));
-			decoded->read(&rgb[2], sizeof(uint8_t));
-			decoded->read(&specular_level, sizeof(float));
-			specular_level = LE2Native(specular_level);
-			mtl->specular.x() = rgb[0] / 255.0f * specular_level;
-			mtl->specular.y() = rgb[1] / 255.0f * specular_level;
-			mtl->specular.z() = rgb[2] / 255.0f * specular_level;
-			decoded->read(&rgb[0], sizeof(uint8_t));
-			decoded->read(&rgb[1], sizeof(uint8_t));
-			decoded->read(&rgb[2], sizeof(uint8_t));
-			mtl->emit.x() = rgb[0] / 255.0f;
-			mtl->emit.y() = rgb[1] / 255.0f;
-			mtl->emit.z() = rgb[2] / 255.0f;
+			mtl->name = ReadShortString(decoded);
 
-			decoded->read(&mtl->opacity, sizeof(float));
-			mtl->opacity = LE2Native(mtl->opacity);
+			decoded->read(&mtl->albedo, sizeof(mtl->albedo));
+			mtl->albedo.x() = LE2Native(mtl->albedo.x());
+			mtl->albedo.y() = LE2Native(mtl->albedo.y());
+			mtl->albedo.z() = LE2Native(mtl->albedo.z());
+			mtl->albedo.w() = LE2Native(mtl->albedo.w());
 
-			decoded->read(&mtl->shininess, sizeof(float));
-			mtl->shininess = LE2Native(mtl->shininess);
+			decoded->read(&mtl->metalness, sizeof(float));
+			mtl->metalness = LE2Native(mtl->metalness);
 
-			if (Context::Instance().Config().graphics_cfg.gamma)
+			decoded->read(&mtl->glossiness, sizeof(float));
+			mtl->glossiness = LE2Native(mtl->glossiness);
+
+			decoded->read(&mtl->emissive, sizeof(mtl->emissive));
+			mtl->emissive.x() = LE2Native(mtl->emissive.x());
+			mtl->emissive.y() = LE2Native(mtl->emissive.y());
+			mtl->emissive.z() = LE2Native(mtl->emissive.z());
+
+			uint8_t transparent;
+			decoded->read(&transparent, sizeof(transparent));
+			mtl->transparent = transparent ? true : false;
+
+			uint8_t alpha_test;
+			decoded->read(&alpha_test, sizeof(uint8_t));
+			mtl->alpha_test = alpha_test / 255.0f;
+
+			uint8_t sss;
+			decoded->read(&sss, sizeof(sss));
+			mtl->sss = sss ? true : false;
+
+			for (size_t i = 0; i < RenderMaterial::TS_NumTextureSlots; ++ i)
 			{
-				mtl->ambient.x() = MathLib::srgb_to_linear(mtl->ambient.x());
-				mtl->ambient.y() = MathLib::srgb_to_linear(mtl->ambient.y());
-				mtl->ambient.z() = MathLib::srgb_to_linear(mtl->ambient.z());
-				mtl->diffuse.x() = MathLib::srgb_to_linear(mtl->diffuse.x());
-				mtl->diffuse.y() = MathLib::srgb_to_linear(mtl->diffuse.y());
-				mtl->diffuse.z() = MathLib::srgb_to_linear(mtl->diffuse.z());
+				mtl->tex_names[i] = ReadShortString(decoded);
 			}
-
-			uint32_t num_texs;
-			decoded->read(&num_texs, sizeof(num_texs));
-			num_texs = LE2Native(num_texs);
-
-			for (uint32_t tex_index = 0; tex_index < num_texs; ++ tex_index)
+			if (!mtl->tex_names[RenderMaterial::TS_Height].empty())
 			{
-				std::string type = ReadShortString(decoded);
-				std::string name = ReadShortString(decoded);
-				mtl->texture_slots.emplace_back(type, name);
+				float height_offset;
+				decoded->read(&height_offset, sizeof(height_offset));
+				mtl->height_offset_scale.x() = LE2Native(height_offset);
+				float height_scale;
+				decoded->read(&height_scale, sizeof(height_scale));
+				mtl->height_offset_scale.y() = LE2Native(height_scale);
 			}
 
 			uint8_t detail_mode;
 			decoded->read(&detail_mode, sizeof(detail_mode));
 			mtl->detail_mode = static_cast<RenderMaterial::SurfaceDetailMode>(detail_mode);
-
-			float height_offset;
-			decoded->read(&height_offset, sizeof(height_offset));
-			mtl->height_offset_scale.x() = LE2Native(height_offset);
-			float height_scale;
-			decoded->read(&height_scale, sizeof(height_scale));
-			mtl->height_offset_scale.y() = LE2Native(height_scale);
-
-			float tess_factor;
-			decoded->read(&tess_factor, sizeof(tess_factor));
-			mtl->tess_factors.x() = LE2Native(tess_factor);
-			decoded->read(&tess_factor, sizeof(tess_factor));
-			mtl->tess_factors.y() = LE2Native(tess_factor);
-			decoded->read(&tess_factor, sizeof(tess_factor));
-			mtl->tess_factors.z() = LE2Native(tess_factor);
-			decoded->read(&tess_factor, sizeof(tess_factor));
-			mtl->tess_factors.w() = LE2Native(tess_factor);
+			if (mtl->detail_mode != RenderMaterial::SDM_Parallax)
+			{
+				float tess_factor;
+				decoded->read(&tess_factor, sizeof(tess_factor));
+				mtl->tess_factors.x() = LE2Native(tess_factor);
+				decoded->read(&tess_factor, sizeof(tess_factor));
+				mtl->tess_factors.y() = LE2Native(tess_factor);
+				decoded->read(&tess_factor, sizeof(tess_factor));
+				mtl->tess_factors.z() = LE2Native(tess_factor);
+				decoded->read(&tess_factor, sizeof(tess_factor));
+				mtl->tess_factors.w() = LE2Native(tess_factor);
+			}
+			else
+			{
+				mtl->tess_factors = float4(5, 5, 1, 9);
+			}
 		}
 
 		uint32_t num_merged_ves;
@@ -1238,8 +1203,8 @@ namespace KlayGE
 		tc_bbs.resize(num_meshes);
 		mesh_num_vertices.resize(num_meshes);
 		mesh_base_vertices.resize(num_meshes);
-		mesh_num_triangles.resize(num_meshes);
-		mesh_base_triangles.resize(num_meshes);
+		mesh_num_indices.resize(num_meshes);
+		mesh_base_indices.resize(num_meshes);
 		for (uint32_t mesh_index = 0; mesh_index < num_meshes; ++ mesh_index)
 		{
 			mesh_names[mesh_index] = ReadShortString(decoded);
@@ -1274,10 +1239,10 @@ namespace KlayGE
 			mesh_num_vertices[mesh_index] = LE2Native(mesh_num_vertices[mesh_index]);
 			decoded->read(&mesh_base_vertices[mesh_index], sizeof(mesh_base_vertices[mesh_index]));
 			mesh_base_vertices[mesh_index] = LE2Native(mesh_base_vertices[mesh_index]);
-			decoded->read(&mesh_num_triangles[mesh_index], sizeof(mesh_num_triangles[mesh_index]));
-			mesh_num_triangles[mesh_index] = LE2Native(mesh_num_triangles[mesh_index]);
-			decoded->read(&mesh_base_triangles[mesh_index], sizeof(mesh_base_triangles[mesh_index]));
-			mesh_base_triangles[mesh_index] = LE2Native(mesh_base_triangles[mesh_index]);
+			decoded->read(&mesh_num_indices[mesh_index], sizeof(mesh_num_indices[mesh_index]));
+			mesh_num_indices[mesh_index] = LE2Native(mesh_num_indices[mesh_index]);
+			decoded->read(&mesh_base_indices[mesh_index], sizeof(mesh_base_indices[mesh_index]));
+			mesh_base_indices[mesh_index] = LE2Native(mesh_base_indices[mesh_index]);
 		}
 
 		joints.resize(num_joints);
@@ -1459,7 +1424,7 @@ namespace KlayGE
 		std::vector<std::string> const & mesh_names, std::vector<int32_t> const & mtl_ids,
 		std::vector<AABBox> const & pos_bbs, std::vector<AABBox> const & tc_bbs,
 		std::vector<uint32_t>& mesh_num_vertices, std::vector<uint32_t>& mesh_base_vertices,
-		std::vector<uint32_t>& mesh_num_triangles, std::vector<uint32_t>& mesh_base_triangles,
+		std::vector<uint32_t>& mesh_num_indices, std::vector<uint32_t>& mesh_base_indices,
 		std::vector<Joint> const & joints, std::shared_ptr<AnimationActionsType> const & actions,
 		std::shared_ptr<KeyFramesType> const & kfs, uint32_t num_frames, uint32_t frame_rate)
 	{
@@ -1488,25 +1453,18 @@ namespace KlayGE
 			int mtl_id = obj.AllocMaterial();
 			mtl_map.emplace(i, mtl_id);
 
-			float3 ambient = mtls[i]->ambient;
-			float3 diffuse = mtls[i]->diffuse;
-			if (Context::Instance().Config().graphics_cfg.gamma)
-			{
-				ambient.x() = MathLib::linear_to_srgb(ambient.x());
-				ambient.y() = MathLib::linear_to_srgb(ambient.y());
-				ambient.z() = MathLib::linear_to_srgb(ambient.z());
-				diffuse.x() = MathLib::linear_to_srgb(diffuse.x());
-				diffuse.y() = MathLib::linear_to_srgb(diffuse.y());
-				diffuse.z() = MathLib::linear_to_srgb(diffuse.z());
-			}
+			obj.SetMaterial(mtl_id, mtls[i]->name, mtls[i]->albedo, mtls[i]->metalness, mtls[i]->glossiness,
+				mtls[i]->emissive, mtls[i]->transparent, mtls[i]->alpha_test, mtls[i]->sss);
 
-			obj.SetMaterial(mtl_id, ambient, diffuse, mtls[i]->specular, mtls[i]->emit,
-				mtls[i]->opacity, mtls[i]->shininess);
-
-			for (size_t ts = 0; ts < mtls[i]->texture_slots.size(); ++ ts)
+			KLAYGE_STATIC_ASSERT(static_cast<int>(MeshMLObj::Material::TS_Albedo) == RenderMaterial::TS_Albedo);
+			KLAYGE_STATIC_ASSERT(static_cast<int>(MeshMLObj::Material::TS_Metalness) == RenderMaterial::TS_Metalness);
+			KLAYGE_STATIC_ASSERT(static_cast<int>(MeshMLObj::Material::TS_Glossiness) == RenderMaterial::TS_Glossiness);
+			KLAYGE_STATIC_ASSERT(static_cast<int>(MeshMLObj::Material::TS_Emissive) == RenderMaterial::TS_Emissive);
+			KLAYGE_STATIC_ASSERT(static_cast<int>(MeshMLObj::Material::TS_Normal) == RenderMaterial::TS_Normal);
+			KLAYGE_STATIC_ASSERT(static_cast<int>(MeshMLObj::Material::TS_Height) == RenderMaterial::TS_Height);
+			for (size_t j = 0; j < RenderMaterial::TS_NumTextureSlots; ++ j)
 			{
-				int slot_id = obj.AllocTextureSlot(mtl_id);
-				obj.SetTextureSlot(mtl_id, slot_id, mtls[i]->texture_slots[ts].first, mtls[i]->texture_slots[ts].second);
+				obj.SetTextureSlot(mtl_id, static_cast<MeshMLObj::Material::TextureSlot>(j), mtls[i]->tex_names[j]);
 			}
 
 			obj.SetDetailMaterial(mtl_id, static_cast<MeshMLObj::Material::SurfaceDetailMode>(mtls[i]->detail_mode),
@@ -1726,20 +1684,20 @@ namespace KlayGE
 				}
 			}
 
-			for (size_t t = 0; t < mesh_num_triangles[i]; ++ t)
+			for (size_t t = 0; t < mesh_num_indices[i]; t += 3)
 			{
 				int tri_id = obj.AllocTriangle(mesh_id);
 				int index[3];
 				if (all_is_index_16_bit)
 				{
-					uint16_t const * src = reinterpret_cast<uint16_t const *>(&merged_indices[(mesh_base_triangles[i] + t * 3) * sizeof(uint16_t)]);
+					uint16_t const * src = reinterpret_cast<uint16_t const *>(&merged_indices[(mesh_base_indices[i] + t) * sizeof(uint16_t)]);
 					index[0] = src[0];
 					index[1] = src[1];
 					index[2] = src[2];
 				}
 				else
 				{
-					uint32_t const * src = reinterpret_cast<uint32_t const *>(&merged_indices[(mesh_base_triangles[i] + t * 3)* sizeof(uint32_t)]);
+					uint32_t const * src = reinterpret_cast<uint32_t const *>(&merged_indices[(mesh_base_indices[i] + t)* sizeof(uint32_t)]);
 					index[0] = src[0];
 					index[1] = src[1];
 					index[2] = src[2];
@@ -1778,6 +1736,10 @@ namespace KlayGE
 		}
 
 		std::ofstream ofs(meshml_name.c_str());
+		if (!ofs)
+		{
+			ofs.open((ResLoader::Instance().LocalFolder() + meshml_name).c_str());
+		}
 		obj.WriteMeshML(ofs);
 	}
 
@@ -1804,8 +1766,8 @@ namespace KlayGE
 		std::vector<AABBox> tc_bbs(mesh_names.size());
 		std::vector<uint32_t> mesh_num_vertices(mesh_names.size());
 		std::vector<uint32_t> mesh_base_vertices(mesh_names.size());
-		std::vector<uint32_t> mesh_num_triangles(mesh_names.size());
-		std::vector<uint32_t> mesh_base_triangles(mesh_names.size());
+		std::vector<uint32_t> mesh_num_indices(mesh_names.size());
+		std::vector<uint32_t> mesh_base_indices(mesh_names.size());
 		if (!mesh_names.empty())
 		{
 			{
@@ -1867,8 +1829,8 @@ namespace KlayGE
 
 				mesh_num_vertices[mesh_index] = mesh.NumVertices();
 				mesh_base_vertices[mesh_index] = mesh.StartVertexLocation();
-				mesh_num_triangles[mesh_index] = mesh.NumTriangles();
-				mesh_base_triangles[mesh_index] =  mesh.StartIndexLocation();
+				mesh_num_indices[mesh_index] = mesh.NumIndices();
+				mesh_base_indices[mesh_index] =  mesh.StartIndexLocation();
 			}
 		}
 
@@ -1929,7 +1891,7 @@ namespace KlayGE
 
 		SaveModel(meshml_name, mtls, merged_ves, all_is_index_16_bit, merged_buffs, merged_indices,
 			mesh_names, mtl_ids, pos_bbs, tc_bbs,
-			mesh_num_vertices, mesh_base_vertices, mesh_num_triangles, mesh_base_triangles,
+			mesh_num_vertices, mesh_base_vertices, mesh_num_indices, mesh_base_indices,
 			joints, actions, kfs, num_frame, frame_rate);
 	}
 
@@ -1937,26 +1899,32 @@ namespace KlayGE
 	RenderableLightSourceProxy::RenderableLightSourceProxy(RenderModelPtr const & model, std::wstring const & name)
 			: StaticMesh(model, name)
 	{
-		this->Technique(SyncLoadRenderEffect("LightSourceProxy.fxml")->TechniqueByName("LightSourceProxy"));
+		auto effect = SyncLoadRenderEffect("LightSourceProxy.fxml");
+		this->Technique(effect, effect->TechniqueByName("LightSourceProxy"));
 		effect_attrs_ |= EA_SimpleForward;
 	}
 
-	void RenderableLightSourceProxy::Technique(RenderTechniquePtr const & tech)
+	void RenderableLightSourceProxy::Technique(RenderEffectPtr const & effect, RenderTechnique* tech)
 	{
-		technique_ = simple_forward_tech_ = tech;
+		StaticMesh::Technique(effect, tech);
+
+		simple_forward_tech_ = tech;
 		if (tech)
 		{
-			mvp_param_ = technique_->Effect().ParameterByName("mvp");
-			model_param_ = technique_->Effect().ParameterByName("model");
-			pos_center_param_ = technique_->Effect().ParameterByName("pos_center");
-			pos_extent_param_ = technique_->Effect().ParameterByName("pos_extent");
-			tc_center_param_ = technique_->Effect().ParameterByName("tc_center");
-			tc_extent_param_ = technique_->Effect().ParameterByName("tc_extent");
+			mvp_param_ = effect_->ParameterByName("mvp");
+			model_param_ = effect_->ParameterByName("model");
+			pos_center_param_ = effect_->ParameterByName("pos_center");
+			pos_extent_param_ = effect_->ParameterByName("pos_extent");
+			tc_center_param_ = effect_->ParameterByName("tc_center");
+			tc_extent_param_ = effect_->ParameterByName("tc_extent");
 
-			light_color_param_ = technique_->Effect().ParameterByName("light_color");
-			light_is_projective_param_ = technique_->Effect().ParameterByName("light_is_projective");
-			projective_map_2d_tex_param_ = technique_->Effect().ParameterByName("projective_map_2d_tex");
-			projective_map_cube_tex_param_ = technique_->Effect().ParameterByName("projective_map_cube_tex");
+			light_color_param_ = effect_->ParameterByName("light_color");
+			light_is_projective_param_ = effect_->ParameterByName("light_is_projective");
+			projective_map_2d_tex_param_ = effect_->ParameterByName("projective_map_2d_tex");
+			projective_map_cube_tex_param_ = effect_->ParameterByName("projective_map_cube_tex");
+
+			select_mode_object_id_param_ = effect_->ParameterByName("object_id");
+			select_mode_tech_ = effect_->TechniqueByName("SelectModeTech");
 		}
 	}
 
@@ -2018,20 +1986,26 @@ namespace KlayGE
 	RenderableCameraProxy::RenderableCameraProxy(RenderModelPtr const & model, std::wstring const & name)
 			: StaticMesh(model, name)
 	{
-		this->Technique(SyncLoadRenderEffect("CameraProxy.fxml")->TechniqueByName("CameraProxy"));
+		auto effect = SyncLoadRenderEffect("CameraProxy.fxml");
+		this->Technique(effect, effect->TechniqueByName("CameraProxy"));
 		effect_attrs_ |= EA_SimpleForward;
 	}
 
-	void RenderableCameraProxy::Technique(RenderTechniquePtr const & tech)
+	void RenderableCameraProxy::Technique(RenderEffectPtr const & effect, RenderTechnique* tech)
 	{
-		technique_ = simple_forward_tech_ = tech;
+		StaticMesh::Technique(effect, tech);
+
+		simple_forward_tech_ = tech;
 		if (tech)
 		{
-			mvp_param_ = technique_->Effect().ParameterByName("mvp");
-			pos_center_param_ = technique_->Effect().ParameterByName("pos_center");
-			pos_extent_param_ = technique_->Effect().ParameterByName("pos_extent");
-			tc_center_param_ = technique_->Effect().ParameterByName("tc_center");
-			tc_extent_param_ = technique_->Effect().ParameterByName("tc_extent");
+			mvp_param_ = effect_->ParameterByName("mvp");
+			pos_center_param_ = effect_->ParameterByName("pos_center");
+			pos_extent_param_ = effect_->ParameterByName("pos_extent");
+			tc_center_param_ = effect_->ParameterByName("tc_center");
+			tc_extent_param_ = effect_->ParameterByName("tc_extent");
+
+			select_mode_object_id_param_ = effect_->ParameterByName("object_id");
+			select_mode_tech_ = effect_->TechniqueByName("SelectModeTech");
 		}
 	}
 

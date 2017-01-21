@@ -43,11 +43,6 @@ namespace KlayGE
 	{
 		array_size_ = array_size;
 
-		if ((array_size > 1) && (!(glloader_GL_VERSION_3_0() || glloader_GL_EXT_texture_array())))
-		{
-			THR(errc::function_not_supported);
-		}
-
 		switch (type_)
 		{
 		case TT_1D:
@@ -88,10 +83,25 @@ namespace KlayGE
 
 		if (sample_count_ <= 1)
 		{
-			glGenTextures(1, &texture_);
-			glBindTexture(target_type_, texture_);
-			glTexParameteri(target_type_, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-			glTexParameteri(target_type_, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			if (glloader_GL_VERSION_4_5() || glloader_GL_ARB_direct_state_access())
+			{
+				glCreateTextures(target_type_, 1, &texture_);
+				glTextureParameteri(texture_, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+				glTextureParameteri(texture_, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			}
+			else if (glloader_GL_EXT_direct_state_access())
+			{
+				glGenTextures(1, &texture_);
+				glTextureParameteriEXT(texture_, target_type_, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+				glTextureParameteriEXT(texture_, target_type_, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			}
+			else
+			{
+				glGenTextures(1, &texture_);
+				glBindTexture(target_type_, texture_);
+				glTexParameteri(target_type_, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+				glTexParameteri(target_type_, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			}
 		}
 		else
 		{
@@ -106,11 +116,11 @@ namespace KlayGE
 		if (Context::Instance().RenderFactoryValid())
 		{
 			OGLRenderEngine& re = *checked_cast<OGLRenderEngine*>(&Context::Instance().RenderFactoryInstance().RenderEngineInstance());
-			re.DeleteBuffers(static_cast<GLsizei>(pbos_.size()), &pbos_[0]);
+			re.DeleteBuffers(1, &pbo_);
 		}
 		else
 		{
-			glDeleteBuffers(static_cast<GLsizei>(pbos_.size()), &pbos_[0]);
+			glDeleteBuffers(1, &pbo_);
 		}
 
 		if (sample_count_ <= 1)
@@ -339,5 +349,71 @@ namespace KlayGE
 	bool OGLTexture::HWResourceReady() const
 	{
 		return hw_res_ready_;
+	}
+
+	void OGLTexture::UpdateSubresource1D(uint32_t array_index, uint32_t level,
+		uint32_t x_offset, uint32_t width,
+		void const * data)
+	{
+		BOOST_ASSERT(false);
+
+		KFL_UNUSED(array_index);
+		KFL_UNUSED(level);
+		KFL_UNUSED(x_offset);
+		KFL_UNUSED(width);
+		KFL_UNUSED(data);
+	}
+
+	void OGLTexture::UpdateSubresource2D(uint32_t array_index, uint32_t level,
+		uint32_t x_offset, uint32_t y_offset, uint32_t width, uint32_t height,
+		void const * data, uint32_t row_pitch)
+	{
+		BOOST_ASSERT(false);
+
+		KFL_UNUSED(array_index);
+		KFL_UNUSED(level);
+		KFL_UNUSED(x_offset);
+		KFL_UNUSED(y_offset);
+		KFL_UNUSED(width);
+		KFL_UNUSED(height);
+		KFL_UNUSED(data);
+		KFL_UNUSED(row_pitch);
+	}
+
+	void OGLTexture::UpdateSubresource3D(uint32_t array_index, uint32_t level,
+		uint32_t x_offset, uint32_t y_offset, uint32_t z_offset,
+		uint32_t width, uint32_t height, uint32_t depth,
+		void const * data, uint32_t row_pitch, uint32_t slice_pitch)
+	{
+		BOOST_ASSERT(false);
+
+		KFL_UNUSED(array_index);
+		KFL_UNUSED(level);
+		KFL_UNUSED(x_offset);
+		KFL_UNUSED(y_offset);
+		KFL_UNUSED(z_offset);
+		KFL_UNUSED(width);
+		KFL_UNUSED(height);
+		KFL_UNUSED(depth);
+		KFL_UNUSED(data);
+		KFL_UNUSED(row_pitch);
+		KFL_UNUSED(slice_pitch);
+	}
+
+	void OGLTexture::UpdateSubresourceCube(uint32_t array_index, Texture::CubeFaces face, uint32_t level,
+		uint32_t x_offset, uint32_t y_offset, uint32_t width, uint32_t height,
+		void const * data, uint32_t row_pitch)
+	{
+		BOOST_ASSERT(false);
+
+		KFL_UNUSED(array_index);
+		KFL_UNUSED(face);
+		KFL_UNUSED(level);
+		KFL_UNUSED(x_offset);
+		KFL_UNUSED(y_offset);
+		KFL_UNUSED(width);
+		KFL_UNUSED(height);
+		KFL_UNUSED(data);
+		KFL_UNUSED(row_pitch);
 	}
 }

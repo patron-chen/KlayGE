@@ -32,14 +32,13 @@
 
 namespace KlayGE
 {
-	SumLumPostProcess::SumLumPostProcess(RenderTechniquePtr const & tech)
-		: PostProcess(L"SumLum",
+	SumLumPostProcess::SumLumPostProcess()
+		: PostProcess(L"SumLum", false,
 			std::vector<std::string>(),
 			std::vector<std::string>(1, "src_tex"),
 			std::vector<std::string>(1, "out_tex"),
-			tech)
+			RenderEffectPtr(), nullptr)
 	{
-		tex_coord_offset_ep_ = technique_->Effect().ParameterByName("tex_coord_offset");
 	}
 
 	SumLumPostProcess::~SumLumPostProcess()
@@ -79,19 +78,21 @@ namespace KlayGE
 			}
 		}
 
-		*tex_coord_offset_ep_ = tex_coord_offset;
+		*(effect_->ParameterByName("tex_coord_offset")) = tex_coord_offset;
 	}
 
 
 	SumLumLogPostProcess::SumLumLogPostProcess()
-			: SumLumPostProcess(SyncLoadRenderEffect("SumLum.fxml")->TechniqueByName("SumLumLog"))
 	{
+		auto effect = SyncLoadRenderEffect("SumLum.fxml");
+		this->Technique(effect, effect->TechniqueByName("SumLumLog"));
 	}
 
 
 	SumLumLogPostProcessCS::SumLumLogPostProcessCS()
-			: SumLumPostProcess(SyncLoadRenderEffect("SumLum.fxml")->TechniqueByName("SumLumLogCS"))
 	{
+		auto effect = SyncLoadRenderEffect("SumLum.fxml");
+		this->Technique(effect, effect->TechniqueByName("SumLumLogCS"));
 	}
 
 	void SumLumLogPostProcessCS::Apply()
@@ -100,26 +101,27 @@ namespace KlayGE
 		re.BindFrameBuffer(re.DefaultFrameBuffer());
 		re.DefaultFrameBuffer()->Discard(FrameBuffer::CBM_Color);
 
-		*(technique_->Effect().ParameterByName("dst_tex_dim")) = int2(64, 64);
+		*(effect_->ParameterByName("dst_tex_dim")) = int2(64, 64);
 
 		this->OnRenderBegin();
-		re.Dispatch(*technique_, 2, 2, 1);
+		re.Dispatch(*effect_, *technique_, 2, 2, 1);
 		this->OnRenderEnd();
 	}
 
 
 	SumLumIterativePostProcess::SumLumIterativePostProcess()
-			: SumLumPostProcess(SyncLoadRenderEffect("SumLum.fxml")->TechniqueByName("SumLumIterative"))
 	{
+		auto effect = SyncLoadRenderEffect("SumLum.fxml");
+		this->Technique(effect, effect->TechniqueByName("SumLumIterative"));
 	}
 
 
 	AdaptedLumPostProcess::AdaptedLumPostProcess()
-			: PostProcess(L"AdaptedLum",
+			: PostProcess(L"AdaptedLum", false,
 					std::vector<std::string>(),
 					std::vector<std::string>(1, "src_tex"),
 					std::vector<std::string>(1, "output"),
-					RenderTechniquePtr()),
+					RenderEffectPtr(), nullptr),
 				last_index_(false)
 	{
 		RenderFactory& rf = Context::Instance().RenderFactoryInstance();
@@ -148,14 +150,15 @@ namespace KlayGE
 			fmt = EF_R32F;
 		}
 
-		this->Technique(SyncLoadRenderEffect("SumLum.fxml")->TechniqueByName("AdaptedLum"));
+		auto effect = SyncLoadRenderEffect("SumLum.fxml");
+		this->Technique(effect, effect->TechniqueByName("AdaptedLum"));
 
 		adapted_textures_[0] = rf.MakeTexture2D(1, 1, 1, 1, fmt, 1, 0, EAH_GPU_Read | EAH_GPU_Write, &init_data);
 		adapted_textures_[1] = rf.MakeTexture2D(1, 1, 1, 1, fmt, 1, 0, EAH_GPU_Read | EAH_GPU_Write, &init_data);
 		this->OutputPin(0, adapted_textures_[last_index_]);
 
-		last_lum_tex_ep_ = technique_->Effect().ParameterByName("last_lum_tex");
-		frame_delta_ep_ = technique_->Effect().ParameterByName("frame_delta");
+		last_lum_tex_ep_ = effect_->ParameterByName("last_lum_tex");
+		frame_delta_ep_ = effect_->ParameterByName("frame_delta");
 	}
 
 	void AdaptedLumPostProcess::Apply()
@@ -177,13 +180,16 @@ namespace KlayGE
 
 
 	AdaptedLumPostProcessCS::AdaptedLumPostProcessCS()
-			: PostProcess(L"AdaptedLumCS", 
+			: PostProcess(L"AdaptedLumCS", false,
 					std::vector<std::string>(),
 					std::vector<std::string>(1, "src_tex"),
 					std::vector<std::string>(1, "out_tex"),
-					SyncLoadRenderEffect("SumLum.fxml")->TechniqueByName("AdaptedLumCS"))
+					RenderEffectPtr(), nullptr)
 	{
-		frame_delta_ep_ = technique_->Effect().ParameterByName("frame_delta");
+		auto effect = SyncLoadRenderEffect("SumLum.fxml");
+		this->Technique(effect, effect->TechniqueByName("AdaptedLumCS"));
+
+		frame_delta_ep_ = effect_->ParameterByName("frame_delta");
 	}
 
 	void AdaptedLumPostProcessCS::Apply()
@@ -193,7 +199,7 @@ namespace KlayGE
 		re.DefaultFrameBuffer()->Discard(FrameBuffer::CBM_Color);
 
 		this->OnRenderBegin();
-		re.Dispatch(*technique_, 1, 1, 1);
+		re.Dispatch(*effect_, *technique_, 1, 1, 1);
 		this->OnRenderEnd();
 	}
 
@@ -206,7 +212,7 @@ namespace KlayGE
 
 
 	ToneMappingPostProcess::ToneMappingPostProcess()
-		: PostProcess(L"ToneMapping")
+		: PostProcess(L"ToneMapping", false)
 	{
 		RenderFactory& rf = Context::Instance().RenderFactoryInstance();
 		RenderDeviceCaps const & caps = rf.RenderEngineInstance().DeviceCaps();
@@ -218,7 +224,7 @@ namespace KlayGE
 		output_pins_.emplace_back("out_tex", TexturePtr());
 		
 		RenderEffectPtr effect = SyncLoadRenderEffect("ToneMapping.fxml");
-		RenderTechniquePtr tech;
+		RenderTechnique* tech;
 		if (caps.max_shader_model >= ShaderModel(3, 0))
 		{
 			tech = effect->TechniqueByName("ToneMapping30");
@@ -228,12 +234,12 @@ namespace KlayGE
 			tech = effect->TechniqueByName("ToneMapping20");
 		}
 
-		this->Technique(tech);
+		this->Technique(effect, tech);
 	}
 
 
 	ImageStatPostProcess::ImageStatPostProcess()
-		: PostProcess(L"ImageStat")
+		: PostProcess(L"ImageStat", false)
 	{
 		sum_lums_1st_ = MakeSharedPtr<SumLumLogPostProcess>();
 		sum_lums_.resize(3);
@@ -321,7 +327,7 @@ namespace KlayGE
 
 
 	ImageStatPostProcessCS::ImageStatPostProcessCS()
-		: PostProcess(L"ImageStatCS")
+		: PostProcess(L"ImageStatCS", false)
 	{
 		sum_lums_1st_ = MakeSharedPtr<SumLumLogPostProcessCS>();
 		adapted_lum_ = MakeSharedPtr<AdaptedLumPostProcessCS>();
@@ -372,7 +378,7 @@ namespace KlayGE
 
 
 	LensEffectsPostProcess::LensEffectsPostProcess()
-		: PostProcess(L"LensEffects")
+		: PostProcess(L"LensEffects", false)
 	{
 		bright_pass_downsampler_ = SyncLoadPostProcess("LensEffects.ppml", "sqr_bright");
 		downsamplers_[0] = SyncLoadPostProcess("Copy.ppml", "bilinear_copy");
@@ -463,7 +469,7 @@ namespace KlayGE
 	uint32_t const HEIGHT = 512;
 
 	FFTLensEffectsPostProcess::FFTLensEffectsPostProcess()
-		: PostProcess(L"FFTLensEffects")
+		: PostProcess(L"FFTLensEffects", false)
 	{
 		RenderFactory& rf = Context::Instance().RenderFactoryInstance();
 		RenderDeviceCaps const & caps = rf.RenderEngineInstance().DeviceCaps();
@@ -616,7 +622,7 @@ namespace KlayGE
 
 
 	HDRPostProcess::HDRPostProcess(bool fft_lens_effects)
-		: PostProcess(L"HDR")
+		: PostProcess(L"HDR", false)
 	{
 		RenderDeviceCaps const & caps = Context::Instance().RenderFactoryInstance().RenderEngineInstance().DeviceCaps();
 		cs_support_ = caps.cs_support && (caps.max_shader_model >= ShaderModel(5, 0));

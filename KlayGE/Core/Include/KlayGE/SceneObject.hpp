@@ -25,7 +25,7 @@
 
 namespace KlayGE
 {
-	class KLAYGE_CORE_API SceneObject : public std::enable_shared_from_this<SceneObject>
+	class KLAYGE_CORE_API SceneObject : boost::noncopyable, public std::enable_shared_from_this<SceneObject>
 	{
 	public:
 		enum SOAttrib
@@ -90,6 +90,7 @@ namespace KlayGE
 		bool SSS() const;
 		bool Reflection() const;
 		bool SimpleForward() const;
+		bool VDM() const;
 
 	protected:
 		uint32_t attrib_;
@@ -103,7 +104,7 @@ namespace KlayGE
 
 		float4x4 model_;
 		float4x4 abs_model_;
-		AABBoxPtr pos_aabb_ws_;
+		std::unique_ptr<AABBox> pos_aabb_ws_;
 		BoundOverlap visible_mark_;
 
 		std::function<void(SceneObject&, float, float)> sub_thread_update_func_;

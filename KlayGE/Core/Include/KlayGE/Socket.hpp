@@ -20,7 +20,7 @@
 
 #include <string>
 
-#ifndef KLAYGE_PLATFORM_WINDOWS_RUNTIME
+#ifndef KLAYGE_PLATFORM_WINDOWS_STORE
 #if defined KLAYGE_PLATFORM_WINDOWS
 	#ifndef _WINSOCKAPI_
 	#include <winsock.h>
@@ -46,7 +46,7 @@ namespace KlayGE
 
 	// Í¬²½Ì×½Ó×Ö
 	///////////////////////////////////////////////////////////////////////////////
-	class KLAYGE_CORE_API Socket
+	class KLAYGE_CORE_API Socket : boost::noncopyable
 	{
 	public:
 		Socket();
